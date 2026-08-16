@@ -39,6 +39,17 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       https://github.com/sbondCo/Watcharr/issues/766
       New recurring task in the existing gocron scheduler (server/task/task.go).
 
+- [ ] **German metadata mode** (titles, overviews, covers via TMDB — related to #772)
+      Don't build from scratch: PR #1079 already implements this well — a global
+      `TMDB_LANG` server setting (dropdown, defaults en-US), with automatic English
+      fallback per-field when a translation is missing (title/overview/poster), applied
+      on detail pages, add/import, and search. Author runs it daily in production
+      (French). Currently `CONFLICTING` against current `dev` (needs a rebase) and is a
+      global, not per-user, setting — fine for our single-user case. Plan: fetch the PR
+      branch, rebase onto our `custom-dev`, resolve conflicts, adopt as-is or set
+      TMDB_LANG=de-DE by default for us.
+      https://github.com/sbondCo/Watcharr/pull/1079
+
 ## Larger builds
 
 - [ ] **#409** — Notifications for upcoming releases
