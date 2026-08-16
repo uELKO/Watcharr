@@ -8,7 +8,7 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
 
 ## Quick wins
 
-- [ ] **#1052** — "In Library" / "Watched" badges in actor filmography
+- [x] **#1052** — "In Library" / "Watched" badges in actor filmography
       https://github.com/sbondCo/Watcharr/issues/1052
       Mostly frontend: reuse the `ExtraDetails` poster-overlay pattern already used
       on /search, apply it to the person filmography grid.

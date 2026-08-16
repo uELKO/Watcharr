@@ -215,6 +215,7 @@
 									bind:watched={credits.credits[i].watched}
 									fluidSize
 									hideIfNotOnList={onMyListFilter}
+									showStatusBadge
 								/>
 							{/each}
 						</PosterList>

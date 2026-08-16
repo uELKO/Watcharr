@@ -17,6 +17,7 @@
 	import { onMount } from "svelte";
 	import PosterStatus from "./PosterStatus.svelte";
 	import PosterRating from "./PosterRating.svelte";
+	import PosterStatusBadge from "./PosterStatusBadge.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
 	import { buildExtraDetails } from "./lib";
 	import { decode } from "blurhash";
@@ -43,6 +44,12 @@
 		 * Notably 'On my list' feature (eg on person page).
 		 */
 		hideIfNotOnList?: boolean;
+		/**
+		 * Shows a small always-visible status badge in the corner of the
+		 * poster when it's on the users list (eg for grids like the person
+		 * filmography, where the full ExtraDetails hover overlay doesn't apply).
+		 */
+		showStatusBadge?: boolean;
 		// When provided, default click handlers will instead run this callback.
 		onClick?: (() => void) | undefined;
 		/**
@@ -63,6 +70,7 @@
 		hideButtons = false,
 		fluidSize = false,
 		hideIfNotOnList = false,
+		showStatusBadge = false,
 		onClick = undefined,
 		onUpdated = undefined,
 	}: Props = $props();
@@ -356,6 +364,9 @@
 		{#if watched && meta && !posterActive}
 			<!-- Must be on watched list, and poster not hovered -->
 			<ExtraDetails {...buildExtraDetails(meta.type, watched)} />
+		{/if}
+		{#if showStatusBadge && watched?.status && !posterActive}
+			<PosterStatusBadge status={watched.status} />
 		{/if}
 		<div
 			onclick={(e) => {
