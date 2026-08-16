@@ -176,6 +176,7 @@
 					media={w}
 					fluidSize={true}
 					disableInteraction={true}
+					showStatusBadge
 				/>
 			{/if}
 		{/each}

@@ -144,6 +144,7 @@
 							media={w}
 							bind:watched={dataLoader.state.data[i].watched}
 							fluidSize
+							showStatusBadge
 						/>
 					{/if}
 				{/each}
