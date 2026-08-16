@@ -1,8 +1,10 @@
 services:
   watcharr:
-    # The :latest tag is used for simplicity, it is recommended
-    # to use an actual version, then when updating check the releases for changelogs.
-    image: ghcr.io/sbondco/watcharr:latest
+    # Build our own fork's Dockerfile instead of pulling sbondCo's prebuilt image,
+    # so custom-dev features are actually included.
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: watcharr
     ports:
       - 3080:3080
