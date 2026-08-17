@@ -24,11 +24,13 @@
 	import PersonPoster from "@/lib/poster/PersonPoster.svelte";
 	import FilterDropDown from "./FilterDropDown.svelte";
 	import { resolve } from "$app/paths";
+	import Checkbox from "@/lib/Checkbox.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
 
 	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
+	let hideWatchedFilter = $state(false);
 	let discoverType: SearchType | undefined = $derived.by(() => {
 		const t = page.url.searchParams.get("type");
 		if (t) {
@@ -118,6 +120,10 @@
 					}}
 				/>
 			</div>
+			<div class="pagetitle-hidewatched">
+				<span>Hide watched</span>
+				<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
+			</div>
 			<div class="pagetitle-filterdropdown">
 				<FilterDropDown
 					{discoverType}
@@ -145,6 +151,7 @@
 							bind:watched={dataLoader.state.data[i].watched}
 							fluidSize
 							showStatusBadge
+							hideIfWatched={hideWatchedFilter}
 						/>
 					{/if}
 				{/each}
@@ -183,6 +190,12 @@
 			width: 100%;
 			order: 2;
 		}
+	}
+
+	.pagetitle-hidewatched {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.pagetitle-filterdropdown {

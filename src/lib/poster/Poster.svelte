@@ -45,6 +45,12 @@
 		 */
 		hideIfNotOnList?: boolean;
 		/**
+		 * Same idea as `hideIfNotOnList`, but inverted: hide the poster if it's
+		 * already marked FINISHED. For discover-style grids where the point is
+		 * to find something new.
+		 */
+		hideIfWatched?: boolean;
+		/**
 		 * Shows a small always-visible status badge in the corner of the
 		 * poster when it's on the users list (eg for grids like the person
 		 * filmography, where the full ExtraDetails hover overlay doesn't apply).
@@ -70,6 +76,7 @@
 		hideButtons = false,
 		fluidSize = false,
 		hideIfNotOnList = false,
+		hideIfWatched = false,
 		showStatusBadge = false,
 		onClick = undefined,
 		onUpdated = undefined,
@@ -327,7 +334,7 @@
 		}
 	}}
 	onkeypress={() => console.log("on kpress")}
-	class={`${posterActive ? "active " : ""}${watched?.pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}`}
+	class={`${posterActive ? "active " : ""}${watched?.pinned ? "pinned " : ""}${hideIfNotOnList && !watched ? "hidden " : ""}${hideIfWatched && watched?.status === "FINISHED" ? "hidden " : ""}`}
 	class:just-deleted={justDeletedFromWatcheds}
 >
 	<div
