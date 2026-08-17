@@ -13,6 +13,11 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       Mostly frontend: reuse the `ExtraDetails` poster-overlay pattern already used
       on /search, apply it to the person filmography grid.
 
+- [x] **Discover: "Hide watched" filter** (not from an upstream issue, our own idea)
+      Hides FINISHED items from Discover grids. Lives in a new reusable `FilterPopover`
+      (trigger button + panel) instead of a standalone toggle, so genre/provider filters
+      below can share the same panel instead of growing the title row.
+
 - [ ] **#869** — Homepage sections by watch status
       https://github.com/sbondCo/Watcharr/issues/869
       Layout/grouping by existing watch status, no new backend logic needed.
@@ -28,10 +33,15 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       Add `WithWatchProviders` + `WatchRegion` to `DiscoverOptions`
       (server/media/tmdb/tmdb_discover.go / structs.go:859), wire into a new Discover
       filter analogous to existing Popular/In Theatres/Upcoming. Display already
-      solved via `ProviderIcon.svelte` / `ProvidersList.svelte`.
+      solved via `ProviderIcon.svelte` / `ProvidersList.svelte`. Note: upstream already
+      has dead scaffolding for this — `DiscoverFilter.streaming` exists in types.ts and
+      FilterDropDown.svelte's option map, but is never pushed into the actual options
+      array and has no backend case. Worth checking their intent before building our own.
+      The provider picker itself (which service) belongs in the `FilterPopover` panel.
 
 - [ ] **#869** (genre-filter half) — Add `WithGenres` to `DiscoverOptions` the same way,
-      plus genre picker UI (TMDB `/genre/movie/list`, `/genre/tv/list`).
+      plus genre picker UI (TMDB `/genre/movie/list`, `/genre/tv/list`) as another row in
+      the `FilterPopover` panel, next to "Hide watched".
 
 ## Medium
 
