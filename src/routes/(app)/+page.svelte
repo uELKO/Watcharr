@@ -3,6 +3,7 @@
 	import { resolve } from "$app/paths";
 	import Error from "@/lib/Error.svelte";
 	import Icon from "@/lib/Icon.svelte";
+	import HorizontalList from "@/lib/HorizontalList.svelte";
 	import Poster from "@/lib/poster/Poster.svelte";
 	import PosterList from "@/lib/poster/PosterList.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
@@ -10,11 +11,61 @@
 	import infScroll from "@/lib/util/infScroll";
 	import paginatedLoader from "@/lib/util/paginatedLoader.svelte";
 	import { clearActiveFilters, store } from "@/store.svelte";
-	import { type Media, type PaginationResponse } from "@/types";
-	import { onDestroy, untrack } from "svelte";
+	import {
+		type Media,
+		type PaginationResponse,
+		type WatchedStatus,
+	} from "@/types";
+	import { onDestroy, onMount, untrack } from "svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
+
+	// Sections shown in the "Group by status" view, in a sensible
+	// most-relevant-first order (rather than alphabetical/enum order).
+	const statusSections: { status: WatchedStatus; label: string }[] = [
+		{ status: "WATCHING", label: "Watching" },
+		{ status: "PLANNED", label: "Planned" },
+		{ status: "HOLD", label: "On Hold" },
+		{ status: "FINISHED", label: "Finished" },
+		{ status: "DROPPED", label: "Dropped" },
+	];
+
+	let groupedView = $state(false);
+	let groupedLoading = $state(false);
+	let groupedData: Partial<
+		Record<WatchedStatus, { items: Media[]; total: number }>
+	> = $state({});
+
+	async function loadGrouped() {
+		groupedLoading = true;
+		try {
+			const results = await Promise.all(
+				statusSections.map((s) =>
+					req.get<PaginationResponse<Media, undefined>>(`/watched`, {
+						params: {
+							...store.sortAndFiltersForQueryParams,
+							status: s.status,
+							page: 1,
+							limit: 30,
+						},
+					}),
+				),
+			);
+			const next: typeof groupedData = {};
+			results.forEach((r, i) => {
+				if (r.results && r.results.length > 0) {
+					next[statusSections[i].status] = {
+						items: r.results,
+						total: r.totalResults,
+					};
+				}
+			});
+			groupedData = next;
+		} finally {
+			groupedLoading = false;
+		}
+	}
 
 	let nextLoadParams: {
 		page: number;
@@ -39,6 +90,11 @@
 	}
 
 	async function onScrollToBottom() {
+		// No infinite scroll in the grouped view, each section loads its own
+		// (small, capped) batch upfront instead.
+		if (groupedView) {
+			return;
+		}
 		// If an error is being shown, no more infinite scroll.
 		if (dataLoader.state.reqLoadError) {
 			return;
@@ -52,7 +108,7 @@
 		// load our list again.
 		// Since it exists at load, this performs our
 		// initial load of data too.
-		if (store.sortAndFiltersForQueryParams) {
+		if (!groupedView && store.sortAndFiltersForQueryParams) {
 			untrack(() => {
 				// We don't want to trigger another re-run of this
 				// effect when state inside these funcs changes.
@@ -60,6 +116,25 @@
 				dataLoader.runFn();
 			});
 		}
+	});
+
+	$effect(() => {
+		if (groupedView && store.sortAndFiltersForQueryParams) {
+			untrack(() => {
+				loadGrouped();
+			});
+		}
+	});
+
+	onMount(() => {
+		const saved = localStorage.getItem("homeGroupedView");
+		if (saved) {
+			groupedView = saved === "true";
+		}
+	});
+
+	$effect(() => {
+		localStorage.setItem("homeGroupedView", String(groupedView));
 	});
 
 	onDestroy(() => {
@@ -88,18 +163,18 @@
 	paginatedLoader.state.meta: {JSON.stringify(dataLoader.state.meta)}
 </span> -->
 
-<PosterList>
-	{#if dataLoader.state.data?.length > 0}
-		{#each dataLoader.state.data as w, i (`${i}-${w.type}`)}
-			{#if w}
-				<Poster
-					bind:watched={dataLoader.state.data[i].watched}
-					media={w}
-					fluidSize={true}
-				/>
-			{/if}
-		{/each}
-	{:else if !dataLoader.state.reqLoading && !dataLoader.state.reqLoadError}
+<div class="view-toggle">
+	<button class="plain" onclick={() => (groupedView = !groupedView)}>
+		{groupedView ? "List view" : "Group by status"}
+	</button>
+</div>
+
+{#if groupedView}
+	{#if groupedLoading && Object.keys(groupedData).length === 0}
+		<div style="margin-bottom: 60px;">
+			<Spinner />
+		</div>
+	{:else if Object.keys(groupedData).length === 0}
 		<div class="empty-list">
 			<Icon i={store.hasActiveFilters ? "filter-circle" : "reel"} wh={80} />
 			<h2 class="norm">Your list looks empty!</h2>
@@ -114,26 +189,71 @@
 				<button onclick={() => clearActiveFilters()}>Clear Filters</button>
 			{/if}
 		</div>
+	{:else}
+		{#each statusSections as s (s.status)}
+			{@const section = groupedData[s.status]}
+			{#if section}
+				<HorizontalList title={`${s.label} (${section.total})`}>
+					{#each section.items as w, i (`${s.status}-${i}-${w.type}`)}
+						<Poster
+							bind:watched={section.items[i].watched}
+							media={w}
+							small
+							onUpdated={loadGrouped}
+						/>
+					{/each}
+				</HorizontalList>
+			{/if}
+		{/each}
 	{/if}
-</PosterList>
+{:else}
+	<PosterList>
+		{#if dataLoader.state.data?.length > 0}
+			{#each dataLoader.state.data as w, i (`${i}-${w.type}`)}
+				{#if w}
+					<Poster
+						bind:watched={dataLoader.state.data[i].watched}
+						media={w}
+						fluidSize={true}
+					/>
+				{/if}
+			{/each}
+		{:else if !dataLoader.state.reqLoading && !dataLoader.state.reqLoadError}
+			<div class="empty-list">
+				<Icon i={store.hasActiveFilters ? "filter-circle" : "reel"} wh={80} />
+				<h2 class="norm">Your list looks empty!</h2>
+				<h4 class="norm">
+					Try {`${store.hasActiveFilters ? "removing your active filters or" : ""}`}
+					searching for something you would like to add.
+				</h4>
+				{#if !store.hasActiveFilters}
+					<button onclick={() => goto(resolve("/import"))}>Import</button>
+				{/if}
+				{#if store.hasActiveFilters}
+					<button onclick={() => clearActiveFilters()}>Clear Filters</button>
+				{/if}
+			</div>
+		{/if}
+	</PosterList>
 
-{#if dataLoader.state.reqLoading}
-	<div style="margin-bottom: 60px;">
-		<Spinner />
-	</div>
-{/if}
+	{#if dataLoader.state.reqLoading}
+		<div style="margin-bottom: 60px;">
+			<Spinner />
+		</div>
+	{/if}
 
-{#if dataLoader.state.reqLoadError}
-	<div style="margin-bottom: 60px;">
-		<Error
-			pretty="Failed to load results!"
-			error={dataLoader.state.reqLoadError}
-			onRetry={() => {
-				dataLoader.state.reqLoadError = undefined;
-				dataLoader.runFn();
-			}}
-		/>
-	</div>
+	{#if dataLoader.state.reqLoadError}
+		<div style="margin-bottom: 60px;">
+			<Error
+				pretty="Failed to load results!"
+				error={dataLoader.state.reqLoadError}
+				onRetry={() => {
+					dataLoader.state.reqLoadError = undefined;
+					dataLoader.runFn();
+				}}
+			/>
+		</div>
+	{/if}
 {/if}
 
 <!-- TODO: A 'That's it' message when you reach bottom of your list? -->
@@ -142,6 +262,20 @@
 {/if} -->
 
 <style lang="scss">
+	.view-toggle {
+		display: flex;
+		justify-content: flex-end;
+		max-width: 1200px;
+		margin: 10px auto 0;
+		padding: 0 15px;
+
+		button {
+			width: min-content;
+			white-space: nowrap;
+			font-size: 14px;
+		}
+	}
+
 	.empty-list {
 		display: flex;
 		flex-flow: column;
