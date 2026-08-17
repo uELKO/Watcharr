@@ -433,6 +433,8 @@ export type DiscoverFilterOption = `${DiscoverFilter}`;
 export interface DiscoverRequest extends PaginationParams {
 	type?: SearchType;
 	filter?: DiscoverFilter;
+	/** Comma separated TMDB genre ids. Only applies to movie/show discover, not Trending. */
+	genres?: string;
 }
 
 export interface PersonDetailsResponse {

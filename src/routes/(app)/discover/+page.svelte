@@ -26,12 +26,14 @@
 	import { resolve } from "$app/paths";
 	import Checkbox from "@/lib/Checkbox.svelte";
 	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
+	import GenreFilter from "./GenreFilter.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
 
 	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
 	let hideWatchedFilter = $state(false);
+	let selectedGenres: number[] = $state([]);
 	let discoverType: SearchType | undefined = $derived.by(() => {
 		const t = page.url.searchParams.get("type");
 		if (t) {
@@ -43,6 +45,11 @@
 		page: dataLoader.state.page + 1,
 		type: discoverType,
 		filter: discoverFilter,
+		// Pipe separated = TMDB "match any of these genres" (OR), not AND.
+		// Supported for every filter mode, including Trending: the server
+		// filters trending results itself using the genre_ids TMDB already
+		// includes on them, since /trending has no genre query param.
+		genres: selectedGenres.length > 0 ? selectedGenres.join("|") : undefined,
 	});
 
 	async function load(signal: AbortSignal) {
@@ -122,11 +129,16 @@
 				/>
 			</div>
 			<div class="pagetitle-filters">
-				<FilterPopover active={hideWatchedFilter}>
+				<FilterPopover active={hideWatchedFilter || selectedGenres.length > 0}>
 					<div class="filter-row">
 						<span>Hide watched</span>
 						<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
 					</div>
+					<GenreFilter
+						{discoverType}
+						bind:active={selectedGenres}
+						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
+					/>
 				</FilterPopover>
 				<FilterDropDown
 					{discoverType}
@@ -207,6 +219,9 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 10px;
+		padding-bottom: 8px;
+		margin-bottom: 4px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.content {

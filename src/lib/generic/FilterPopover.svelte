@@ -91,7 +91,7 @@
 			flex-flow: column;
 			gap: 10px;
 			padding: 10px 12px;
-			min-width: 190px;
+			min-width: 220px;
 			border-radius: 5px;
 			background-color: $bg-color;
 			border: 2px solid $text-color;

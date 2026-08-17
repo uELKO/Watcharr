@@ -29,6 +29,11 @@ type DiscoverRequest struct {
 	// Not every `Type` of discover will support all Filters (service funcs
 	// will error individually based on what they support).
 	Filter DiscoverFilter `form:"filter" binding:"validdiscoverfilter"`
+	// Optional: comma separated TMDB genre ids to filter by. Only applies to
+	// filters backed by /discover/{movie,tv} (Popular/Upcoming/In Theatres);
+	// TMDB's /trending endpoint doesn't support genre filtering, so this is
+	// ignored for DiscoverFilterTrending.
+	Genres string `form:"genres"`
 }
 
 // Extra data that we provide to the Discover service func.

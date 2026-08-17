@@ -90,4 +90,8 @@ func (t *TMDB) applyDiscoverOptionsToMap(
 	if o.WithReleaseType != "" {
 		m[withReleaseTypeKey] = o.WithReleaseType
 	}
+	if o.WithGenres != "" {
+		// Same param name for both /discover/movie and /discover/tv.
+		m["with_genres"] = o.WithGenres
+	}
 }

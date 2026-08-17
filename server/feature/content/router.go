@@ -68,6 +68,8 @@ func (r *Router) AddRoutes() {
 	content.GET("/person/:id/credits", r.GetPersonCredits)
 	// Available regions for watch providers
 	content.GET("/regions", r.GetRegions)
+	// Available genres for movies/tv (Discover genre filter)
+	content.GET("/genres", r.GetGenres)
 }
 
 func (r *Router) GetMovieDetails(c *gin.Context) {
@@ -278,4 +280,18 @@ func (r *Router) GetRegions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, re)
+}
+
+func (r *Router) GetGenres(c *gin.Context) {
+	mediaType := c.Query("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "type must be movie or tv"})
+		return
+	}
+	ge, err := r.tmdb.Genres(mediaType)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, ge.Genres)
 }
