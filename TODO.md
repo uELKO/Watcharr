@@ -18,7 +18,7 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       (trigger button + panel) instead of a standalone toggle, so genre/provider filters
       below can share the same panel instead of growing the title row.
 
-- [ ] **#869** — Homepage sections by watch status
+- [x] **#869** — Homepage sections by watch status
       https://github.com/sbondCo/Watcharr/issues/869
       Layout/grouping by existing watch status, no new backend logic needed.
 
