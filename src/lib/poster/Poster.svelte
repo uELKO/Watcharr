@@ -18,6 +18,7 @@
 	import PosterStatus from "./PosterStatus.svelte";
 	import PosterRating from "./PosterRating.svelte";
 	import PosterStatusBadge from "./PosterStatusBadge.svelte";
+	import PosterEpisodeBadge from "./PosterEpisodeBadge.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
 	import { buildExtraDetails } from "./lib";
 	import { decode } from "blurhash";
@@ -56,6 +57,11 @@
 		 * filmography, where the full ExtraDetails hover overlay doesn't apply).
 		 */
 		showStatusBadge?: boolean;
+		/**
+		 * Shows a small always-visible "S2E5"-style badge for shows with a
+		 * current/last-watched episode (eg the homepage's "Watching" section).
+		 */
+		showEpisodeBadge?: boolean;
 		// When provided, default click handlers will instead run this callback.
 		onClick?: (() => void) | undefined;
 		/**
@@ -78,6 +84,7 @@
 		hideIfNotOnList = false,
 		hideIfWatched = false,
 		showStatusBadge = false,
+		showEpisodeBadge = false,
 		onClick = undefined,
 		onUpdated = undefined,
 	}: Props = $props();
@@ -374,6 +381,9 @@
 		{/if}
 		{#if showStatusBadge && watched?.status && !posterActive}
 			<PosterStatusBadge status={watched.status} />
+		{/if}
+		{#if showEpisodeBadge && watched?.watchingSeason && !posterActive}
+			<PosterEpisodeBadge text={watched.watchingSeason} />
 		{/if}
 		<div
 			onclick={(e) => {

@@ -199,6 +199,7 @@
 							bind:watched={section.items[i].watched}
 							media={w}
 							small
+							showEpisodeBadge={s.status === "WATCHING"}
 							onUpdated={loadGrouped}
 						/>
 					{/each}
