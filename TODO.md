@@ -22,6 +22,11 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       https://github.com/sbondCo/Watcharr/issues/869
       Layout/grouping by existing watch status, no new backend logic needed.
 
+- [x] **Home "Watching" row: current episode badge** ("S3 E1", not from an upstream
+      issue) — uses the `watchingSeason` string the server already computes
+      (server/feature/watched/watchedutil), space-formatted for display only in
+      `PosterEpisodeBadge.svelte`.
+
 - [ ] **#1008** — Chronological "Up Next" view (upcoming episodes/movies + unwatched)
       https://github.com/sbondCo/Watcharr/issues/1008
       Unfinished community draft exists: PR #1069 (overview "Up Next" row) — evaluate
@@ -44,6 +49,15 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       the `FilterPopover` panel, next to "Hide watched".
 
 ## Medium
+
+- [ ] **Home "Watching" row: "+N remaining episodes" badge / progress bar**
+      (inspired by JustWatch's card layout, not from an upstream issue) — needs real
+      backend work, not just styling: the `/watched` list endpoint currently only sends
+      the pre-computed `watchingSeason` string ("S3E1"), not raw episode counts. Would
+      need the season's/show's total episode count added to `WatchedDto` (or a computed
+      `remainingEpisodes` field), cross-referenced against already-watched episodes
+      server-side, for every item in the Watching section. Scope this properly before
+      starting — it's the same data dependency for both the "+N" badge and a progress bar.
 
 - [ ] **#766** — Auto move "Finished" → "Planned" when a show gets a new season
       https://github.com/sbondCo/Watcharr/issues/766
