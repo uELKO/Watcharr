@@ -34,19 +34,25 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
 
 ## Discover-filter extensions (same backend touch point, do together)
 
+- [x] **#869** (genre-filter half) + **Discover: multi-select genre filter**
+      Multi-select checklist (OR semantics) in the `FilterPopover` panel, new
+      `/content/genres` endpoint, `WithGenres` on `DiscoverOptions`. Works for every
+      filter mode including Trending — TMDB's `/trending` has no genre param, so that
+      case filters the already-fetched results server-side using the `genre_ids` TMDB
+      already includes on them (`discoverMultiTrending` in discover.go).
+
 - [ ] **Streaming-provider trending** (Netflix/Disney+/AppleTV etc. — no upstream issue)
       Add `WithWatchProviders` + `WatchRegion` to `DiscoverOptions`
       (server/media/tmdb/tmdb_discover.go / structs.go:859), wire into a new Discover
-      filter analogous to existing Popular/In Theatres/Upcoming. Display already
+      filter analogous to existing Popular/In Theatres/Upcoming, picker lives in the
+      `FilterPopover` panel (same place as the new genre filter). Display already
       solved via `ProviderIcon.svelte` / `ProvidersList.svelte`. Note: upstream already
       has dead scaffolding for this — `DiscoverFilter.streaming` exists in types.ts and
       FilterDropDown.svelte's option map, but is never pushed into the actual options
       array and has no backend case. Worth checking their intent before building our own.
-      The provider picker itself (which service) belongs in the `FilterPopover` panel.
-
-- [ ] **#869** (genre-filter half) — Add `WithGenres` to `DiscoverOptions` the same way,
-      plus genre picker UI (TMDB `/genre/movie/list`, `/genre/tv/list`) as another row in
-      the `FilterPopover` panel, next to "Hide watched".
+      Same trick as genre-on-Trending may apply here too if TMDB's watch-provider
+      params aren't available on /trending either — check before assuming we need to
+      skip Trending for this one too.
 
 ## Medium
 
