@@ -25,6 +25,7 @@
 	import FilterDropDown from "./FilterDropDown.svelte";
 	import { resolve } from "$app/paths";
 	import Checkbox from "@/lib/Checkbox.svelte";
+	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
@@ -120,11 +121,13 @@
 					}}
 				/>
 			</div>
-			<div class="pagetitle-hidewatched">
-				<span>Hide watched</span>
-				<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
-			</div>
-			<div class="pagetitle-filterdropdown">
+			<div class="pagetitle-filters">
+				<FilterPopover active={hideWatchedFilter}>
+					<div class="filter-row">
+						<span>Hide watched</span>
+						<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
+					</div>
+				</FilterPopover>
 				<FilterDropDown
 					{discoverType}
 					bind:active={discoverFilter}
@@ -192,14 +195,18 @@
 		}
 	}
 
-	.pagetitle-hidewatched {
+	.pagetitle-filters {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 10px;
+		margin-left: auto;
 	}
 
-	.pagetitle-filterdropdown {
-		margin-left: auto;
+	.filter-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
 	}
 
 	.content {
