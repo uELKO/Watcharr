@@ -200,6 +200,13 @@ export interface ActivityUpdateRequest {
 export interface WatchedSeasonAddResponse {
 	watchedSeasons: WatchedSeason[];
 	addedActivity: Activity;
+	seasonStatusChangedHookResponse?: SeasonStatusChangedHookResponse;
+}
+
+export interface SeasonStatusChangedHookResponse {
+	watchedEpisodes?: WatchedEpisode[];
+	newShowStatus?: WatchedStatus;
+	errors?: string[];
 }
 
 export interface WatchedEpisodeAddResponse {

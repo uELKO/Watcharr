@@ -8,8 +8,11 @@ import (
 	"github.com/go-co-op/gocron/v2"
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/database"
+	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/arr"
+	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/image"
+	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/token"
 	"gorm.io/gorm"
 )
@@ -47,7 +50,7 @@ var taskScheduler gocron.Scheduler
 var taskFuncs map[string]TaskFunc
 
 // Setup recurring tasks (eg cleanup every x mins)
-func SetupTasks(cfg *config.ServerConfig, db *gorm.DB) {
+func SetupTasks(cfg *config.ServerConfig, db *gorm.DB, tmdbSvc *tmdb.TMDB, activityProvider domain.ActivityAddProvider) {
 	ts, err := gocron.NewScheduler()
 	if err != nil {
 		slog.Error("SetupTasks: Failed to create new scheduler!", "error", err)
@@ -78,6 +81,12 @@ func SetupTasks(cfg *config.ServerConfig, db *gorm.DB) {
 		"Optimize Database": {
 			f: func() {
 				database.TaskOptimize(db)
+			},
+			dd: 24 * time.Hour,
+		},
+		"Refresh Finished Shows": {
+			f: func() {
+				season.RefreshFinishedShowsForNewSeasons(db, tmdbSvc, activityProvider)
 			},
 			dd: 24 * time.Hour,
 		},

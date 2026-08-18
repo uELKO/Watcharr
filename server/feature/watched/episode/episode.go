@@ -86,6 +86,74 @@ func NewService(
 
 // Add/edit a watched episode.
 func (s *Service) AddWatchedEpisodes(userId uint, ar WatchedEpisodeAddRequest) (WatchedEpisodeAddResponse, error) {
+	resp, err := s.addOrUpdateWatchedEpisode(userId, ar)
+	if err != nil {
+		return resp, err
+	}
+	if ar.Status != "" {
+		slog.Debug("addWatchedEpisodes: Episode status was changed, calling hook.")
+		resp.EpisodeStatusChangedHookResponse =
+			s.hookEpisodeStatusChanged(
+				userId,
+				ar.WatchedID,
+				ar.SeasonNumber,
+				ar.EpisodeNumber,
+				ar.Status)
+	}
+	return resp, nil
+}
+
+// Same as AddWatchedEpisodes, but skips the episode-status-changed
+// automation hook (which updates season/show status). Used when a season is
+// itself being cascaded down onto its episodes (eg marking a whole season
+// FINISHED backfills any episodes without a status) - the hook's job is
+// redundant there since the season status is already being set explicitly
+// by the caller.
+func (s *Service) AddWatchedEpisodeNoHook(userId uint, ar WatchedEpisodeAddRequest) (WatchedEpisodeAddResponse, error) {
+	return s.addOrUpdateWatchedEpisode(userId, ar)
+}
+
+// Implements season.WatchedEpisodeProvider for the season->episode cascade.
+func (s *Service) SetEpisodeStatusForSeasonCascade(
+	userId uint,
+	watchedId uint,
+	seasonNumber int,
+	episodeNumber int,
+	status entity.WatchedStatus,
+	addActivity entity.ActivityType,
+) (entity.WatchedEpisode, error) {
+	resp, err := s.AddWatchedEpisodeNoHook(userId, WatchedEpisodeAddRequest{
+		WatchedID:     watchedId,
+		SeasonNumber:  seasonNumber,
+		EpisodeNumber: episodeNumber,
+		Status:        status,
+		AddActivity:   addActivity,
+	})
+	if err != nil {
+		return entity.WatchedEpisode{}, err
+	}
+	for _, we := range resp.WatchedEpisodes {
+		if we.SeasonNumber == seasonNumber && we.EpisodeNumber == episodeNumber {
+			return we, nil
+		}
+	}
+	return entity.WatchedEpisode{}, errors.New("episode not found in response after adding")
+}
+
+// Episode numbers in `seasonNumber` that already have a watched entry
+// (any status), so a season->episode cascade can skip them instead of
+// clobbering whatever the user already set (eg an episode marked DROPPED).
+func (s *Service) GetWatchedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error) {
+	var episodeNumbers []int
+	if res := s.db.Model(&entity.WatchedEpisode{}).
+		Where("user_id = ? AND watched_id = ? AND season_number = ?", userId, watchedId, seasonNumber).
+		Pluck("episode_number", &episodeNumbers); res.Error != nil {
+		return nil, res.Error
+	}
+	return episodeNumbers, nil
+}
+
+func (s *Service) addOrUpdateWatchedEpisode(userId uint, ar WatchedEpisodeAddRequest) (WatchedEpisodeAddResponse, error) {
 	slog.Debug("Adding watched episode item", "userId", userId, "watchedID", ar.WatchedID, "season", ar.SeasonNumber, "episode", ar.EpisodeNumber)
 	// 1. Make sure watched item exists and it is the correct type (TV)
 	var w entity.Watched
@@ -188,21 +256,10 @@ func (s *Service) AddWatchedEpisodes(userId uint, ar WatchedEpisodeAddRequest) (
 		}
 		addedActivity, _ = s.activityProvider.AddActivity(userId, act, false)
 	}
-	episodeAddResp := WatchedEpisodeAddResponse{
+	return WatchedEpisodeAddResponse{
 		WatchedEpisodes: w.WatchedEpisodes,
 		AddedActivity:   addedActivity,
-	}
-	if ar.Status != "" {
-		slog.Debug("addWatchedEpisodes: Episode status was changed, calling hook.")
-		episodeAddResp.EpisodeStatusChangedHookResponse =
-			s.hookEpisodeStatusChanged(
-				userId,
-				ar.WatchedID,
-				ar.SeasonNumber,
-				ar.EpisodeNumber,
-				ar.Status)
-	}
-	return episodeAddResp, nil
+	}, nil
 }
 
 // Remove a watched episode

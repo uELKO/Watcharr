@@ -213,7 +213,7 @@ func main() {
 		gameService,
 		activityService,
 		userService)
-	watchedSeasonService := season.NewService(db, activityService)
+	watchedSeasonService := season.NewService(db, activityService, tmdbService, userService)
 	watchedEpisodeService := episode.NewService(
 		db,
 		watchedService,
@@ -221,6 +221,11 @@ func main() {
 		tmdbService,
 		activityService,
 		userService)
+	// season<->episode have a two-way dependency (episode status changes can
+	// update season status, and marking a season FINISHED backfills its
+	// episodes), so this is injected after both services exist rather than
+	// through the constructor - same pattern as tmdbService.AddContentProvider.
+	watchedSeasonService.SetWatchedEpisodeProvider(watchedEpisodeService)
 	jellyfinService := jellyfin.NewService(cfg)
 	jellyfinSyncService := jellyfin.NewSyncService(
 		cfg,
@@ -289,7 +294,7 @@ func main() {
 			"error", uresp.Error)
 	}
 
-	go taskl.SetupTasks(cfg, db)
+	go taskl.SetupTasks(cfg, db, tmdbService, activityService)
 
 	gine.Run("0.0.0.0:3080")
 }

@@ -311,13 +311,6 @@
 				<SimilarContent similar={show.similar} />
 			{/if}
 
-			{#if show.watched}
-				<Activity
-					activity={show.watched.activity}
-					onRemoved={(a) => activityRemovedHook(show?.watched, a)}
-				/>
-			{/if}
-
 			{#if data?.tvId && show.seasons}
 				<SeasonsList
 					tvId={data.tvId}
@@ -329,6 +322,13 @@
 							show.watched.lastViewedSeason = lvs;
 						}
 					}}
+				/>
+			{/if}
+
+			{#if show.watched}
+				<Activity
+					activity={show.watched.activity}
+					onRemoved={(a) => activityRemovedHook(show?.watched, a)}
 				/>
 			{/if}
 		</div>

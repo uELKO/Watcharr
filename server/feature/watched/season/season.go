@@ -3,11 +3,14 @@ package season
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/media/tmdb"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -27,18 +30,66 @@ type WatchedSeasonAddRequest struct {
 type WatchedSeasonAddResponse struct {
 	WatchedSeasons []entity.WatchedSeason `json:"watchedSeasons"`
 	AddedActivity  entity.Activity        `json:"addedActivity"`
+	// Response from the season->episode cascade hook (see hookSeasonStatusChanged).
+	SeasonStatusChangedHookResponse SeasonStatusChangedHookResponse `json:"seasonStatusChangedHookResponse,omitempty"`
+}
+
+type SeasonStatusChangedHookResponse struct {
+	// Watched episodes that were added/updated by the cascade, so the
+	// client can update its state without needing a full refresh.
+	WatchedEpisodes []entity.WatchedEpisode `json:"watchedEpisodes,omitempty"`
+	// Set if every season of the show is now FINISHED/DROPPED and we
+	// updated the show's own status to match.
+	NewShowStatus entity.WatchedStatus `json:"newShowStatus,omitempty"`
+	Errors        []string             `json:"errors,omitempty"`
+}
+
+type UserProvider interface {
+	UserGetSettings(userId uint) (entity.UserSettings, error)
+}
+
+// Implemented by episode.Service. Can't import that package directly (it
+// already imports this one, for WatchedSeasonProvider), so this only uses
+// primitive/entity types rather than episode's own request/response structs.
+type WatchedEpisodeProvider interface {
+	// Sets a single episode's status without running the normal
+	// episode-status-changed automation (which would redundantly try to
+	// update the season/show status we're already explicitly setting here).
+	// Used only for the season->episode cascade below.
+	SetEpisodeStatusForSeasonCascade(userId uint, watchedId uint, seasonNumber int, episodeNumber int, status entity.WatchedStatus, addActivity entity.ActivityType) (entity.WatchedEpisode, error)
+	// Episode numbers in a season that already have a watched entry (any
+	// status), so the cascade only backfills ones the user hasn't touched.
+	GetWatchedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error)
 }
 
 type Service struct {
 	db               *gorm.DB
 	activityProvider domain.ActivityAddProvider
+	tmdb             *tmdb.TMDB
+	userProvider     UserProvider
+	// Set after construction via SetWatchedEpisodeProvider, since
+	// episode.Service depends on this service and so can't exist yet
+	// when this service is constructed.
+	wep WatchedEpisodeProvider
 }
 
-func NewService(db *gorm.DB, activityProvider domain.ActivityAddProvider) *Service {
+func NewService(
+	db *gorm.DB,
+	activityProvider domain.ActivityAddProvider,
+	tmdb *tmdb.TMDB,
+	userProvider UserProvider,
+) *Service {
 	return &Service{
-		db,
-		activityProvider,
+		db:               db,
+		activityProvider: activityProvider,
+		tmdb:             tmdb,
+		userProvider:     userProvider,
 	}
+}
+
+// See the `wep` field comment on Service.
+func (s *Service) SetWatchedEpisodeProvider(wep WatchedEpisodeProvider) {
+	s.wep = wep
 }
 
 // Add/edit a watched season.
@@ -142,10 +193,138 @@ func (s *Service) AddWatchedSeason(userId uint, ar WatchedSeasonAddRequest) (Wat
 		}
 		addedActivity, _ = s.activityProvider.AddActivity(userId, act, false)
 	}
-	return WatchedSeasonAddResponse{
+	resp := WatchedSeasonAddResponse{
 		WatchedSeasons: w.WatchedSeasons,
 		AddedActivity:  addedActivity,
-	}, nil
+	}
+	// If the season was just set to FINISHED (created that way, or changed
+	// to it), backfill any episodes in it that don't have a status yet.
+	if ar.Status == entity.FINISHED && (!found || updated) {
+		resp.SeasonStatusChangedHookResponse =
+			s.hookSeasonStatusChanged(userId, w.ID, w.Content.TmdbID, ar.SeasonNumber, w.Status)
+	}
+	return resp, nil
+}
+
+// Called after a season has been explicitly marked FINISHED. Backfills any
+// episode in it that doesn't have a watched entry yet as FINISHED too, so
+// "mark whole season watched" doesn't leave individual episodes still
+// toggleable/inconsistent with the season you just finished. Episodes the
+// user already set a status for (eg one they marked DROPPED) are left alone.
+// `showStatus` is the show's status *before* this call, so we know whether
+// it's safe to auto-advance it (eg never override a deliberate DROPPED).
+func (s *Service) hookSeasonStatusChanged(userId uint, watchedId uint, showTmdbId int, seasonNum int, showStatus entity.WatchedStatus) SeasonStatusChangedHookResponse {
+	hookResponse := SeasonStatusChangedHookResponse{}
+	if s.wep == nil {
+		slog.Error("hookSeasonStatusChanged: No WatchedEpisodeProvider set, cannot continue.")
+		hookResponse.Errors = append(hookResponse.Errors, "no episode provider configured")
+		return hookResponse
+	}
+	userSettings, err := s.userProvider.UserGetSettings(userId)
+	if err != nil {
+		slog.Error("hookSeasonStatusChanged: Failed to get user settings! Hook will continue.", "error", err)
+	} else if !*userSettings.AutomateShowStatuses {
+		slog.Debug("hookSeasonStatusChanged: User has AutomateShowStatuses disabled. Skipping hook.", "user_id", userId)
+		return hookResponse
+	}
+	seasonDetails, err := s.tmdb.SeasonDetails(strconv.Itoa(showTmdbId), strconv.Itoa(seasonNum))
+	if err != nil {
+		slog.Error("hookSeasonStatusChanged: Failed to get season details!", "error", err)
+		hookResponse.Errors = append(hookResponse.Errors, "failed to get season details")
+		return hookResponse
+	}
+	existing, err := s.wep.GetWatchedEpisodeNumbersInSeason(userId, watchedId, seasonNum)
+	if err != nil {
+		slog.Error("hookSeasonStatusChanged: Failed to get existing watched episodes!", "error", err)
+		hookResponse.Errors = append(hookResponse.Errors, "failed to get existing watched episodes")
+		return hookResponse
+	}
+	existingSet := make(map[int]bool, len(existing))
+	for _, e := range existing {
+		existingSet[e] = true
+	}
+	for _, ep := range seasonDetails.Episodes {
+		if existingSet[ep.EpisodeNumber] {
+			continue
+		}
+		we, err := s.wep.SetEpisodeStatusForSeasonCascade(
+			userId, watchedId, seasonNum, ep.EpisodeNumber,
+			entity.FINISHED, entity.EPISODE_ADDED_AUTO,
+		)
+		if err != nil {
+			slog.Error("hookSeasonStatusChanged: Failed to set episode status!",
+				"episode", ep.EpisodeNumber, "error", err)
+			hookResponse.Errors = append(hookResponse.Errors,
+				fmt.Sprintf("failed to set episode %d status", ep.EpisodeNumber))
+			continue
+		}
+		hookResponse.WatchedEpisodes = append(hookResponse.WatchedEpisodes, we)
+	}
+	slog.Debug(fmt.Sprintf(
+		"hookSeasonStatusChanged: Backfilled episodes for season %d as finished.", seasonNum))
+
+	// If every season of the show is now done, the show itself is done too.
+	// Never override a show the user has explicitly DROPPED though - that's
+	// a deliberate decision, not something automation should second-guess.
+	if showStatus == entity.DROPPED {
+		return hookResponse
+	}
+	allFinished, err := s.allSeasonsFinished(userId, watchedId, showTmdbId)
+	if err != nil {
+		slog.Error("hookSeasonStatusChanged: Failed to check if all seasons are finished!", "error", err)
+		hookResponse.Errors = append(hookResponse.Errors, "failed to check if all seasons are finished")
+		return hookResponse
+	}
+	if allFinished {
+		if res := s.db.Model(&entity.Watched{}).Where("id = ?", watchedId).Update("status", entity.FINISHED); res.Error != nil {
+			slog.Error("hookSeasonStatusChanged: Failed to update show status to finished!", "error", res.Error)
+			hookResponse.Errors = append(hookResponse.Errors, "failed to update show status to finished")
+			return hookResponse
+		}
+		hookResponse.NewShowStatus = entity.FINISHED
+		json, _ := json.Marshal(map[string]interface{}{
+			"status": entity.FINISHED,
+			"reason": fmt.Sprintf("Season %d was the last remaining season.", seasonNum),
+		})
+		s.activityProvider.AddActivity(
+			userId,
+			domain.ActivityAddProps{
+				WatchedID: watchedId,
+				Type:      entity.STATUS_CHANGED_AUTO,
+				Data:      string(json),
+			},
+			false,
+		)
+	}
+	return hookResponse
+}
+
+// True if every real season (excludes specials and seasons TMDB has no
+// episodes for yet) of the show has a FINISHED or DROPPED watched entry.
+func (s *Service) allSeasonsFinished(userId uint, watchedId uint, showTmdbId int) (bool, error) {
+	showDetails, err := s.tmdb.ShowDetails(tmdb.ShowDetailsOptions{ID: strconv.Itoa(showTmdbId)})
+	if err != nil {
+		return false, err
+	}
+	var watchedSeasons []entity.WatchedSeason
+	if res := s.db.Where("watched_id = ? AND user_id = ?", watchedId, userId).Find(&watchedSeasons); res.Error != nil {
+		return false, res.Error
+	}
+	done := make(map[int]bool, len(watchedSeasons))
+	for _, ws := range watchedSeasons {
+		if ws.Status == entity.FINISHED || ws.Status == entity.DROPPED {
+			done[ws.SeasonNumber] = true
+		}
+	}
+	for _, se := range showDetails.Seasons {
+		if se.SeasonNumber <= 0 || se.EpisodeCount <= 0 {
+			continue
+		}
+		if !done[se.SeasonNumber] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // Remove a watched season

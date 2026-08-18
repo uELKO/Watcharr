@@ -106,6 +106,7 @@
 				}
 				return "Season Removed";
 			case "EPISODE_ADDED":
+			case "EPISODE_ADDED_AUTO":
 				if (a.data) {
 					const data = JSON.parse(a.data);
 					return `${seasonAndEpToReadable(data.season, data.episode)} Added ${data.status ? `as ${toFullTitleCase(data.status)}` : data.rating ? `with Rating ${data.rating}` : ""}`;

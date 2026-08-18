@@ -41,6 +41,32 @@ export async function updateWatchedSeason(
 		} else {
 			watchedItem.activity = [r.addedActivity];
 		}
+		const hookResp = r?.seasonStatusChangedHookResponse;
+		if (hookResp) {
+			if (hookResp.errors && hookResp.errors.length > 0) {
+				console.error(
+					"seasonStatusChangedHookResponse contained errors! Some episodes may not have been marked finished.",
+					hookResp.errors,
+				);
+				notify({
+					type: "error",
+					text: "Some episodes failed to update automatically, check console for more info.",
+				});
+			}
+			if (hookResp.watchedEpisodes && hookResp.watchedEpisodes.length > 0) {
+				const existing = watchedItem.watchedEpisodes ?? [];
+				const byKey = new Map(
+					existing.map((e) => [`${e.seasonNumber}-${e.episodeNumber}`, e]),
+				);
+				for (const we of hookResp.watchedEpisodes) {
+					byKey.set(`${we.seasonNumber}-${we.episodeNumber}`, we);
+				}
+				watchedItem.watchedEpisodes = Array.from(byKey.values());
+			}
+			if (hookResp.newShowStatus) {
+				watchedItem.status = hookResp.newShowStatus;
+			}
+		}
 		notify({ id: nid, text: `Saved!`, type: "success" });
 	} catch (err) {
 		console.error("updateWatchedSeason: Failed!", err);
