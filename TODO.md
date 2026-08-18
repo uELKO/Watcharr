@@ -65,9 +65,16 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       server-side, for every item in the Watching section. Scope this properly before
       starting — it's the same data dependency for both the "+N" badge and a progress bar.
 
-- [ ] **#766** — Auto move "Finished" → "Planned" when a show gets a new season
+- [x] **#766** — Auto move "Finished" → "Planned" when a show gets a new season
       https://github.com/sbondCo/Watcharr/issues/766
-      New recurring task in the existing gocron scheduler (server/task/task.go).
+      New recurring task "Refresh Finished Shows" (24h) in server/task/task.go. Only
+      touches shows whose status is FINISHED, so a deliberately DROPPED show is never
+      reset. Bundled with two related, not-from-an-issue cascades we built alongside it:
+      marking a whole season FINISHED backfills any episode in it with no status yet
+      (season.go's hookSeasonStatusChanged, episode.Service injected in after both
+      services exist to resolve the two-way dependency), and once every season is
+      FINISHED/DROPPED the show itself flips to FINISHED too - unless it's already
+      DROPPED, which automation never overrides.
 
 - [ ] **German metadata mode** (titles, overviews, covers via TMDB — related to #772)
       Don't build from scratch: PR #1079 already implements this well — a global
