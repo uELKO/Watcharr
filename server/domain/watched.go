@@ -83,12 +83,16 @@ type WatchedDto struct {
 	// & on public pages because they could be private).
 	Thoughts string `json:"thoughts,omitempty"`
 	// Watching Season extra detail for list.
-	WatchingSeason   string                  `json:"watchingSeason,omitempty"`
-	Activity         []entity.Activity       `json:"activity,omitempty"`
-	WatchedSeasons   []entity.WatchedSeason  `json:"watchedSeasons,omitempty"`
-	WatchedEpisodes  []entity.WatchedEpisode `json:"watchedEpisodes,omitempty"`
-	Tags             []entity.Tag            `json:"tags,omitempty"`
-	LastViewedSeason *int                    `json:"lastViewedSeason,omitempty"`
+	WatchingSeason string `json:"watchingSeason,omitempty"`
+	// Episodes left to watch, and watch progress (0-100), for shows with a
+	// known total episode count (from cached Content, no extra TMDB call).
+	RemainingEpisodes int                     `json:"remainingEpisodes,omitempty"`
+	WatchProgress     int                     `json:"watchProgress,omitempty"`
+	Activity          []entity.Activity       `json:"activity,omitempty"`
+	WatchedSeasons    []entity.WatchedSeason  `json:"watchedSeasons,omitempty"`
+	WatchedEpisodes   []entity.WatchedEpisode `json:"watchedEpisodes,omitempty"`
+	Tags              []entity.Tag            `json:"tags,omitempty"`
+	LastViewedSeason  *int                    `json:"lastViewedSeason,omitempty"`
 	// Amount of plays this media has, calculated from activity.
 	Plays int `json:"plays,omitempty"`
 }
@@ -112,6 +116,8 @@ func NewWatchedDtoForLists(w *entity.Watched) WatchedDto {
 	if w.Content != nil && w.Content.Type == entity.SHOW {
 		dto.WatchingSeason = watchedutil.GetLatestWatchedInTv(
 			w.WatchedSeasons, w.WatchedEpisodes)
+		dto.RemainingEpisodes, dto.WatchProgress = watchedutil.GetWatchProgress(
+			w.Content.NumberOfEpisodes, w.WatchedEpisodes)
 	}
 
 	return dto

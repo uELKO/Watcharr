@@ -19,6 +19,7 @@
 	import PosterRating from "./PosterRating.svelte";
 	import PosterStatusBadge from "./PosterStatusBadge.svelte";
 	import PosterEpisodeBadge from "./PosterEpisodeBadge.svelte";
+	import PosterProgressBar from "./PosterProgressBar.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
 	import { buildExtraDetails } from "./lib";
 	import { decode } from "blurhash";
@@ -58,7 +59,8 @@
 		 */
 		showStatusBadge?: boolean;
 		/**
-		 * Shows a small always-visible "S2E5"-style badge for shows with a
+		 * Shows a small always-visible "S2E5"-style badge (plus a "+N left"
+		 * pill and a bottom progress bar, when known) for shows with a
 		 * current/last-watched episode (eg the homepage's "Watching" section).
 		 */
 		showEpisodeBadge?: boolean;
@@ -383,7 +385,13 @@
 			<PosterStatusBadge status={watched.status} />
 		{/if}
 		{#if showEpisodeBadge && watched?.watchingSeason && !posterActive}
-			<PosterEpisodeBadge text={watched.watchingSeason} />
+			<PosterEpisodeBadge
+				text={watched.watchingSeason}
+				remaining={watched.remainingEpisodes}
+			/>
+		{/if}
+		{#if showEpisodeBadge && watched?.watchProgress !== undefined && !posterActive}
+			<PosterProgressBar progress={watched.watchProgress} />
 		{/if}
 		<div
 			onclick={(e) => {

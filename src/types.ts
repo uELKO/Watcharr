@@ -153,6 +153,9 @@ export interface Watched {
 
 	// 'Watching Season/Ep' Extra detail.
 	watchingSeason?: string;
+	// Episodes left, and progress (0-100), for shows with a known episode count.
+	remainingEpisodes?: number;
+	watchProgress?: number;
 
 	media?: Media;
 }
