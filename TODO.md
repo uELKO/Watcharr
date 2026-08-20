@@ -27,10 +27,15 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       (server/feature/watched/watchedutil), space-formatted for display only in
       `PosterEpisodeBadge.svelte`.
 
-- [ ] **#1008** — Chronological "Up Next" view (upcoming episodes/movies + unwatched)
+- [x] **#1008** — "Up Next" row (next unwatched episode per Watching show)
       https://github.com/sbondCo/Watcharr/issues/1008
-      Unfinished community draft exists: PR #1069 (overview "Up Next" row) — evaluate
-      adopting/finishing that instead of starting from scratch.
+      Adapted (not copy-pasted) from community draft PR #1069 — that draft used axios
+      directly, predating the `req` wrapper migration. New `GET /watched/upnext`, new
+      `UpNext.svelte` at the top of the homepage, reusing PosterEpisodeBadge/
+      PosterProgressBar/PosterRating/PosterStatus verbatim so it's pixel- and behavior-
+      identical to posters elsewhere. Not done: the "upcoming calendar" half of #1008
+      (movies/episodes not yet released) — the PR's own notes flagged that as depending
+      on a periodic refresh mechanism (#1048/#1049), separate scope from this row.
 
 ## Discover-filter extensions (same backend touch point, do together)
 
