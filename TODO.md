@@ -56,14 +56,14 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
 
 ## Medium
 
-- [ ] **Home "Watching" row: "+N remaining episodes" badge / progress bar**
-      (inspired by JustWatch's card layout, not from an upstream issue) — needs real
-      backend work, not just styling: the `/watched` list endpoint currently only sends
-      the pre-computed `watchingSeason` string ("S3E1"), not raw episode counts. Would
-      need the season's/show's total episode count added to `WatchedDto` (or a computed
-      `remainingEpisodes` field), cross-referenced against already-watched episodes
-      server-side, for every item in the Watching section. Scope this properly before
-      starting — it's the same data dependency for both the "+N" badge and a progress bar.
+- [x] **Home "Watching" row: "+N remaining episodes" badge / progress bar**
+      Used the show's already-cached `Content.NumberOfEpisodes` (no extra TMDB call)
+      vs FINISHED/DROPPED episode count → `remainingEpisodes` + `watchProgress` on
+      `WatchedDto` (watchedutil.GetWatchProgress). Surfaced a real pre-existing bug:
+      `getLatestWatchedSeasonInTv` only looked at season-level statuses, so a season
+      auto-finished by the season→episode cascade kept "winning" over a later season
+      being tracked purely episode-by-episode with no season-level entry of its own.
+      Fixed + regression test added.
 
 - [x] **#766** — Auto move "Finished" → "Planned" when a show gets a new season
       https://github.com/sbondCo/Watcharr/issues/766
