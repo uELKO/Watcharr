@@ -10,6 +10,7 @@ import (
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
+	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/util"
 	"gorm.io/gorm"
 )
@@ -32,6 +33,7 @@ type Service struct {
 	gameProvider     GameProvider
 	activityProvider domain.ActivityAddProvider
 	userProvider     UserProvider
+	tmdb             *tmdb.TMDB
 }
 
 func NewService(
@@ -40,6 +42,7 @@ func NewService(
 	gameProvider GameProvider,
 	activityProvider domain.ActivityAddProvider,
 	userProvider UserProvider,
+	tmdbSvc *tmdb.TMDB,
 ) *Service {
 	return &Service{
 		db,
@@ -47,6 +50,7 @@ func NewService(
 		gameProvider,
 		activityProvider,
 		userProvider,
+		tmdbSvc,
 	}
 }
 

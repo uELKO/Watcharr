@@ -4,6 +4,7 @@
 	import Error from "@/lib/Error.svelte";
 	import Icon from "@/lib/Icon.svelte";
 	import HorizontalList from "@/lib/HorizontalList.svelte";
+	import UpNext from "@/lib/UpNext.svelte";
 	import Poster from "@/lib/poster/Poster.svelte";
 	import PosterList from "@/lib/poster/PosterList.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
@@ -36,6 +37,17 @@
 	let groupedData: Partial<
 		Record<WatchedStatus, { items: Media[]; total: number }>
 	> = $state({});
+
+	// So actions taken in the Up Next row (mark watched, drop, rate, status
+	// change) don't leave the Watching section/list below showing stale data.
+	function refreshAfterUpNextAction() {
+		if (groupedView) {
+			loadGrouped();
+		} else {
+			dataLoader.reset();
+			dataLoader.runFn();
+		}
+	}
 
 	async function loadGrouped() {
 		groupedLoading = true;
@@ -162,6 +174,8 @@
 	{JSON.stringify(store.sortAndFiltersForQueryParams)}
 	paginatedLoader.state.meta: {JSON.stringify(dataLoader.state.meta)}
 </span> -->
+
+<UpNext onUpdated={refreshAfterUpNextAction} />
 
 <div class="view-toggle">
 	<button class="plain" onclick={() => (groupedView = !groupedView)}>

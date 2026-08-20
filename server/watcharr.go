@@ -212,7 +212,8 @@ func main() {
 		contentService,
 		gameService,
 		activityService,
-		userService)
+		userService,
+		tmdbService)
 	watchedSeasonService := season.NewService(db, activityService, tmdbService, userService)
 	watchedEpisodeService := episode.NewService(
 		db,
