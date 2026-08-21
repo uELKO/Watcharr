@@ -20,6 +20,7 @@
 	import PosterStatusBadge from "./PosterStatusBadge.svelte";
 	import PosterEpisodeBadge from "./PosterEpisodeBadge.svelte";
 	import PosterProgressBar from "./PosterProgressBar.svelte";
+	import PosterCommunityRating from "./PosterCommunityRating.svelte";
 	import ExtraDetails from "./ExtraDetails.svelte";
 	import { buildExtraDetails } from "./lib";
 	import { decode } from "blurhash";
@@ -409,6 +410,10 @@
 			role="button"
 			tabindex="-1"
 		>
+			<PosterCommunityRating
+				rating={media.rating}
+				ratingCount={media.ratingCount}
+			/>
 			<a
 				data-sveltekit-preload-data="tap"
 				href={link ? resolve(link) : undefined}
@@ -551,6 +556,9 @@
 			& > a {
 				height: 100%;
 				overflow: auto;
+				// Clears the PosterCommunityRating pill (top-right corner)
+				// so long titles don't run under it.
+				margin-top: 22px;
 			}
 
 			h2 {

@@ -176,8 +176,11 @@ func NewMediaFromContent(c *entity.Content) Media {
 		Name:          c.Title,
 		Summary:       c.Overview,
 		ExtPosterPath: c.PosterPath,
-		Rating:        uint(c.VoteAverage),
-		RatingCount:   uint(c.VoteCount),
+		// *10, matching every other Rating conversion in this codebase (eg
+		// tmdb/structs.go's AsMedia() implementations) - encodes one decimal
+		// digit of precision (8.9 -> 89) instead of truncating it away.
+		Rating:      uint(c.VoteAverage * 10),
+		RatingCount: uint(c.VoteCount),
 		Runtime:       uint(c.Runtime),
 	}
 	switch c.Type {
