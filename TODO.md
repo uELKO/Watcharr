@@ -37,6 +37,15 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       (movies/episodes not yet released) — the PR's own notes flagged that as depending
       on a periodic refresh mechanism (#1048/#1049), separate scope from this row.
 
+- [x] **Poster hover: TMDB community rating pill** (not from an upstream issue — asked
+      as "IMDb rating on hover", scoped down to the TMDB score we already have instead
+      of adding an OMDb API dependency for a real IMDb number). New
+      `PosterCommunityRating.svelte`, shown app-wide on every poster's hover overlay.
+      Fixed a real bug it surfaced: watched-list items built their `Rating` via
+      `uint(VoteAverage)` instead of `uint(VoteAverage*10)` like every other conversion
+      in the codebase, truncating the decimal (8.9 → 8) — nothing had rendered that
+      field for watched-list media before, so it went unnoticed.
+
 ## Discover-filter extensions (same backend touch point, do together)
 
 - [x] **#869** (genre-filter half) + **Discover: multi-select genre filter**
