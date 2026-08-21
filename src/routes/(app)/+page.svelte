@@ -175,7 +175,9 @@
 	paginatedLoader.state.meta: {JSON.stringify(dataLoader.state.meta)}
 </span> -->
 
-<UpNext onUpdated={refreshAfterUpNextAction} />
+<div class="capped-content">
+	<UpNext onUpdated={refreshAfterUpNextAction} />
+</div>
 
 <div class="view-toggle">
 	<button class="plain" onclick={() => (groupedView = !groupedView)}>
@@ -184,43 +186,45 @@
 </div>
 
 {#if groupedView}
-	{#if groupedLoading && Object.keys(groupedData).length === 0}
-		<div style="margin-bottom: 60px;">
-			<Spinner />
-		</div>
-	{:else if Object.keys(groupedData).length === 0}
-		<div class="empty-list">
-			<Icon i={store.hasActiveFilters ? "filter-circle" : "reel"} wh={80} />
-			<h2 class="norm">Your list looks empty!</h2>
-			<h4 class="norm">
-				Try {`${store.hasActiveFilters ? "removing your active filters or" : ""}`}
-				searching for something you would like to add.
-			</h4>
-			{#if !store.hasActiveFilters}
-				<button onclick={() => goto(resolve("/import"))}>Import</button>
-			{/if}
-			{#if store.hasActiveFilters}
-				<button onclick={() => clearActiveFilters()}>Clear Filters</button>
-			{/if}
-		</div>
-	{:else}
-		{#each statusSections as s (s.status)}
-			{@const section = groupedData[s.status]}
-			{#if section}
-				<HorizontalList title={`${s.label} (${section.total})`}>
-					{#each section.items as w, i (`${s.status}-${i}-${w.type}`)}
-						<Poster
-							bind:watched={section.items[i].watched}
-							media={w}
-							small
-							showEpisodeBadge={s.status === "WATCHING"}
-							onUpdated={loadGrouped}
-						/>
-					{/each}
-				</HorizontalList>
-			{/if}
-		{/each}
-	{/if}
+	<div class="capped-content grouped-content">
+		{#if groupedLoading && Object.keys(groupedData).length === 0}
+			<div style="margin-bottom: 60px;">
+				<Spinner />
+			</div>
+		{:else if Object.keys(groupedData).length === 0}
+			<div class="empty-list">
+				<Icon i={store.hasActiveFilters ? "filter-circle" : "reel"} wh={80} />
+				<h2 class="norm">Your list looks empty!</h2>
+				<h4 class="norm">
+					Try {`${store.hasActiveFilters ? "removing your active filters or" : ""}`}
+					searching for something you would like to add.
+				</h4>
+				{#if !store.hasActiveFilters}
+					<button onclick={() => goto(resolve("/import"))}>Import</button>
+				{/if}
+				{#if store.hasActiveFilters}
+					<button onclick={() => clearActiveFilters()}>Clear Filters</button>
+				{/if}
+			</div>
+		{:else}
+			{#each statusSections as s (s.status)}
+				{@const section = groupedData[s.status]}
+				{#if section}
+					<HorizontalList title={`${s.label} (${section.total})`}>
+						{#each section.items as w, i (`${s.status}-${i}-${w.type}`)}
+							<Poster
+								bind:watched={section.items[i].watched}
+								media={w}
+								small
+								showEpisodeBadge={s.status === "WATCHING"}
+								onUpdated={loadGrouped}
+							/>
+						{/each}
+					</HorizontalList>
+				{/if}
+			{/each}
+		{/if}
+	</div>
 {:else}
 	<PosterList>
 		{#if dataLoader.state.data?.length > 0}
@@ -277,10 +281,15 @@
 {/if} -->
 
 <style lang="scss">
+	.capped-content {
+		max-width: 1800px;
+		margin: 0 auto;
+	}
+
 	.view-toggle {
 		display: flex;
 		justify-content: flex-end;
-		max-width: 1200px;
+		max-width: 1800px;
 		margin: 10px auto 0;
 		padding: 0 15px;
 
