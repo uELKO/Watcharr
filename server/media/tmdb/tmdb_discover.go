@@ -19,6 +19,9 @@ func (t *TMDB) DiscoverMovies(
 		"page":   strconv.Itoa(pageNum),
 		"region": region,
 	}
+	if o.WithWatchProviders != "" {
+		reqParams["watch_region"] = region
+	}
 	t.applyDiscoverOptionsToMap(true, o, reqParams)
 	cacheKey := cache.CreateCacheKey(
 		"DiscoverMovies",
@@ -46,6 +49,9 @@ func (t *TMDB) DiscoverShows(
 	reqParams := map[string]string{
 		"page":   strconv.Itoa(pageNum),
 		"region": region,
+	}
+	if o.WithWatchProviders != "" {
+		reqParams["watch_region"] = region
 	}
 	t.applyDiscoverOptionsToMap(false, o, reqParams)
 	cacheKey := cache.CreateCacheKey(
@@ -93,5 +99,10 @@ func (t *TMDB) applyDiscoverOptionsToMap(
 	if o.WithGenres != "" {
 		// Same param name for both /discover/movie and /discover/tv.
 		m["with_genres"] = o.WithGenres
+	}
+	if o.WithWatchProviders != "" {
+		// Same param name for both. watch_region (required for this to take
+		// effect) is added by the caller (DiscoverMovies/DiscoverShows).
+		m["with_watch_providers"] = o.WithWatchProviders
 	}
 }

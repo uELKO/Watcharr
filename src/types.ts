@@ -445,6 +445,8 @@ export interface DiscoverRequest extends PaginationParams {
 	filter?: DiscoverFilter;
 	/** Comma separated TMDB genre ids. Only applies to movie/show discover, not Trending. */
 	genres?: string;
+	/** Pipe separated TMDB watch provider ids. Only applies to movie/show discover, not Trending. */
+	providers?: string;
 }
 
 export interface PersonDetailsResponse {

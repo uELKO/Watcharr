@@ -867,6 +867,10 @@ type DiscoverOptions struct {
 	WithReleaseType string
 	// Comma separated TMDB genre ids.
 	WithGenres string
+	// Pipe separated TMDB watch provider ids (OR match). Requires a
+	// watch_region to actually take effect - the caller's `region` param
+	// is used for that automatically when this is set.
+	WithWatchProviders string
 }
 
 //

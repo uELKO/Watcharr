@@ -27,6 +27,7 @@
 	import Checkbox from "@/lib/Checkbox.svelte";
 	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
 	import GenreFilter from "./GenreFilter.svelte";
+	import ProviderFilter from "./ProviderFilter.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
@@ -34,6 +35,11 @@
 	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
 	let hideWatchedFilter = $state(false);
 	let selectedGenres: number[] = $state([]);
+	let selectedProviders: number[] = $state([]);
+	// Unlike genres, TMDB gives us no per-item provider data on trending
+	// results, so there's no server-side post-filter trick available here -
+	// providers are simply unsupported for Trending.
+	let providerFilterSupported = $derived(discoverFilter !== DiscoverFilter.trending);
 	let discoverType: SearchType | undefined = $derived.by(() => {
 		const t = page.url.searchParams.get("type");
 		if (t) {
@@ -50,6 +56,10 @@
 		// filters trending results itself using the genre_ids TMDB already
 		// includes on them, since /trending has no genre query param.
 		genres: selectedGenres.length > 0 ? selectedGenres.join("|") : undefined,
+		providers:
+			providerFilterSupported && selectedProviders.length > 0
+				? selectedProviders.join("|")
+				: undefined,
 	});
 
 	async function load(signal: AbortSignal) {
@@ -129,14 +139,26 @@
 				/>
 			</div>
 			<div class="pagetitle-filters">
-				<FilterPopover active={hideWatchedFilter || selectedGenres.length > 0}>
+				<FilterPopover
+					active={hideWatchedFilter ||
+						selectedGenres.length > 0 ||
+						(providerFilterSupported && selectedProviders.length > 0)}
+				>
 					<div class="filter-row">
 						<span>Hide watched</span>
 						<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
 					</div>
-					<GenreFilter
+					<div class="filter-section">
+						<GenreFilter
+							{discoverType}
+							bind:active={selectedGenres}
+							onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
+						/>
+					</div>
+					<ProviderFilter
 						{discoverType}
-						bind:active={selectedGenres}
+						disabled={!providerFilterSupported}
+						bind:active={selectedProviders}
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
 					/>
 				</FilterPopover>
@@ -219,6 +241,12 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 10px;
+		padding-bottom: 8px;
+		margin-bottom: 4px;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	}
+
+	.filter-section {
 		padding-bottom: 8px;
 		margin-bottom: 4px;
 		border-bottom: 1px solid rgba(255, 255, 255, 0.1);

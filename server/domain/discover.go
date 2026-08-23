@@ -34,6 +34,11 @@ type DiscoverRequest struct {
 	// TMDB's /trending endpoint doesn't support genre filtering, so this is
 	// ignored for DiscoverFilterTrending.
 	Genres string `form:"genres"`
+	// Optional: pipe separated TMDB watch provider ids to filter by. Same
+	// scope restriction as Genres, but unlike genres there's no per-item
+	// provider data on trending results to filter with client-side either,
+	// so this is unconditionally ignored for DiscoverFilterTrending.
+	Providers string `form:"providers"`
 }
 
 // Extra data that we provide to the Discover service func.
