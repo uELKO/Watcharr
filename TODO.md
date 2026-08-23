@@ -94,6 +94,16 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       FINISHED/DROPPED the show itself flips to FINISHED too - unless it's already
       DROPPED, which automation never overrides.
 
+- [x] **Discover: fix double-popup on Year/Rating, persist filters per-user**
+      (not from an upstream issue, our own idea). The Year/Rating `FilterPopover`
+      panels had a nested `DropDown` inside them — two popups stacked for one
+      filter. New `SingleSelectFilter` renders the options as a flat list
+      directly in the panel instead, matching how Genres/Streaming already work
+      as checklists. Also persists the whole filter selection (type, filter
+      mode, hide watched, genres, providers, year, rating) server-side per-user
+      as an opaque JSON blob (new `DiscoverFilters` setting) so refreshing the
+      page no longer resets the filter bar.
+
 - [ ] **German metadata mode** (titles, overviews, covers via TMDB — related to #772)
       Don't build from scratch: PR #1079 already implements this well — a global
       `TMDB_LANG` server setting (dropdown, defaults en-US), with automatic English
