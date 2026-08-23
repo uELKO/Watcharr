@@ -64,6 +64,14 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       Upstream's dead `DiscoverFilter.streaming` scaffolding was left alone; we filter as
       an add-on to Popular/Upcoming/In Theatres instead of a separate mode.
 
+- [x] **Configurable UI: hide People (Discover) / hide Tags** (not from an upstream
+      issue, our own idea). Two new per-user settings, `hideDiscoverPeople` and
+      `hideTags`, following the existing `entity.UserSettings` pointer-field pattern.
+      `hideDiscoverPeople` only affects Discover's `MediaTypeFilter` (new `hidePeople`
+      prop) — Search uses the same component and is left untouched. `hideTags` hides
+      the nav bar Tags icon/menu and the "add to tag" button on movie/TV/game pages.
+      Toggles added to Profile → Settings, matching the existing Hide Spoilers pattern.
+
 ## Medium
 
 - [x] **Home "Watching" row: "+N remaining episodes" badge / progress bar**
