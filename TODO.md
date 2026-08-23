@@ -55,18 +55,14 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       case filters the already-fetched results server-side using the `genre_ids` TMDB
       already includes on them (`discoverMultiTrending` in discover.go).
 
-- [ ] **Streaming-provider trending** (Netflix/Disney+/AppleTV etc. — no upstream issue)
-      Add `WithWatchProviders` + `WatchRegion` to `DiscoverOptions`
-      (server/media/tmdb/tmdb_discover.go / structs.go:859), wire into a new Discover
-      filter analogous to existing Popular/In Theatres/Upcoming, picker lives in the
-      `FilterPopover` panel (same place as the new genre filter). Display already
-      solved via `ProviderIcon.svelte` / `ProvidersList.svelte`. Note: upstream already
-      has dead scaffolding for this — `DiscoverFilter.streaming` exists in types.ts and
-      FilterDropDown.svelte's option map, but is never pushed into the actual options
-      array and has no backend case. Worth checking their intent before building our own.
-      Same trick as genre-on-Trending may apply here too if TMDB's watch-provider
-      params aren't available on /trending either — check before assuming we need to
-      skip Trending for this one too.
+- [x] **Streaming-provider trending** (Netflix/Disney+/AppleTV etc. — no upstream issue)
+      Multi-select checklist in the `FilterPopover` panel, next to Genre, with each
+      provider's real TMDB logo. New `/content/watch-providers` endpoint, `WithWatchProviders`
+      on `DiscoverOptions` (+ `watch_region`, which TMDB requires alongside it). Checked:
+      unlike genres, TMDB doesn't include per-item provider data on trending results, so
+      it's disabled (with tooltip) for Trending — no post-filter trick available there.
+      Upstream's dead `DiscoverFilter.streaming` scaffolding was left alone; we filter as
+      an add-on to Popular/Upcoming/In Theatres instead of a separate mode.
 
 ## Medium
 
