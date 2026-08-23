@@ -31,6 +31,27 @@ func NewService(
 	}
 }
 
+// Bundles the optional refinement filters (genre/provider/year/rating) so
+// they don't have to be threaded through every discover* function as
+// separate positional params. Not every filter applies to every mode -
+// callers zero out what doesn't apply (eg genres/providers are cleared for
+// DiscoverMulti, since those lists are per movie/tv).
+type discoverFilters struct {
+	genres    string
+	providers string
+	year      int
+	minRating float64
+}
+
+func filtersFromRequest(r domain.DiscoverRequest) discoverFilters {
+	return discoverFilters{
+		genres:    r.Genres,
+		providers: r.Providers,
+		year:      r.Year,
+		minRating: r.MinRating,
+	}
+}
+
 // `Limit` is not supported.
 func (s *Service) Discover(
 	// User request
@@ -62,17 +83,17 @@ func (s *Service) DiscoverMulti(
 ) (domain.DiscoverResponse, error) {
 	resp := domain.DiscoverResponse{}
 	var err error
+	// Multi doesn't support genre/provider filtering (those lists differ per
+	// movie/tv, and the frontend only offers picking for those specific
+	// types), but year/rating apply fine to anything.
+	f := filtersFromRequest(r)
+	f.genres = ""
+	f.providers = ""
 	switch r.Filter {
 	case domain.DiscoverFilterTrending:
-		// Multi doesn't support genre filtering (genre lists differ per
-		// movie/tv, and the frontend only offers genre picking for those
-		// specific types), so always pass an empty genres value here.
-		err = s.discoverMultiTrending(tmdb.TrendingTypeAll, "", meta, &resp)
+		err = s.discoverMultiTrending(tmdb.TrendingTypeAll, f, meta, &resp)
 	case domain.DiscoverFilterInTheatres:
-		// Multi doesn't support genre/provider filtering (those lists differ
-		// per movie/tv, and the frontend only offers picking for those
-		// specific types), so always pass empty values here.
-		err = s.discoverMovieInTheatres("", "", meta, &resp)
+		err = s.discoverMovieInTheatres(f, meta, &resp)
 	default:
 		slog.Error("DiscoverMulti: Unsupported filter.")
 		return resp, errors.New("unsupported filter")
@@ -87,15 +108,16 @@ func (s *Service) DiscoverMovie(
 ) (domain.DiscoverResponse, error) {
 	resp := domain.DiscoverResponse{}
 	var err error
+	f := filtersFromRequest(r)
 	switch r.Filter {
 	case domain.DiscoverFilterTrending:
-		err = s.discoverMultiTrending(tmdb.TrendingTypeMovie, r.Genres, meta, &resp)
+		err = s.discoverMultiTrending(tmdb.TrendingTypeMovie, f, meta, &resp)
 	case domain.DiscoverFilterInTheatres:
-		err = s.discoverMovieInTheatres(r.Genres, r.Providers, meta, &resp)
+		err = s.discoverMovieInTheatres(f, meta, &resp)
 	case domain.DiscoverFilterUpcoming:
-		err = s.discoverMovieUpcoming(r.Genres, r.Providers, meta, &resp)
+		err = s.discoverMovieUpcoming(f, meta, &resp)
 	case domain.DiscoverFilterPopular:
-		err = s.discoverMoviePopular(r.Genres, r.Providers, meta, &resp)
+		err = s.discoverMoviePopular(f, meta, &resp)
 	default:
 		slog.Error("DiscoverMovie: Unsupported filter.")
 		return resp, errors.New("unsupported filter")
@@ -110,13 +132,14 @@ func (s *Service) DiscoverTv(
 ) (domain.DiscoverResponse, error) {
 	resp := domain.DiscoverResponse{}
 	var err error
+	f := filtersFromRequest(r)
 	switch r.Filter {
 	case domain.DiscoverFilterTrending:
-		err = s.discoverMultiTrending(tmdb.TrendingTypeShow, r.Genres, meta, &resp)
+		err = s.discoverMultiTrending(tmdb.TrendingTypeShow, f, meta, &resp)
 	case domain.DiscoverFilterUpcoming:
-		err = s.discoverTvUpcoming(r.Genres, r.Providers, meta, &resp)
+		err = s.discoverTvUpcoming(f, meta, &resp)
 	case domain.DiscoverFilterPopular:
-		err = s.discoverTvPopular(r.Genres, r.Providers, meta, &resp)
+		err = s.discoverTvPopular(f, meta, &resp)
 	default:
 		slog.Error("DiscoverMovie: Unsupported filter.")
 		return resp, errors.New("unsupported filter")
@@ -133,8 +156,8 @@ func (s *Service) DiscoverPeople(
 	var err error
 	switch r.Filter {
 	case domain.DiscoverFilterTrending:
-		// People have no genres, always pass an empty genres value here.
-		err = s.discoverMultiTrending(tmdb.TrendingTypePerson, "", meta, &resp)
+		// People have no genres/providers/year/rating.
+		err = s.discoverMultiTrending(tmdb.TrendingTypePerson, discoverFilters{}, meta, &resp)
 	case domain.DiscoverFilterPopular:
 		err = s.discoverPeoplePopular(meta, &resp)
 	default:
@@ -165,15 +188,18 @@ func (s *Service) DiscoverGame(
 
 // Discover anything that is trending on TMDB (including combined).
 //
-// TMDB's /trending endpoint has no genre query param (unlike /discover), so
-// unlike the other discover*  functions, genre filtering here is done by
-// filtering the already-fetched results ourselves using the genre_ids TMDB
-// includes on every trending result. Same caveat as the "hide watched"
-// poster filter: TotalResults/TotalPages still reflect the unfiltered
-// count, since filtering happens after paging.
+// TMDB's /trending endpoint has no genre/provider/year/rating query params
+// (unlike /discover), so unlike the other discover* functions, filtering
+// here is done by filtering the already-fetched results ourselves, using
+// the genre_ids/release date/vote_average TMDB includes on every trending
+// result. providers is the one filter that can't be done this way (trending
+// results carry no per-item watch-provider data at all), so it's always
+// empty by the time it gets here (callers clear it). Same caveat as the
+// "hide watched" poster filter: TotalResults/TotalPages still reflect the
+// unfiltered count, since filtering happens after paging.
 func (s *Service) discoverMultiTrending(
 	t tmdb.TrendingType,
-	genres string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
@@ -182,9 +208,24 @@ func (s *Service) discoverMultiTrending(
 		slog.Error("discoverMulti: Failed to search tmdb!", "error", err)
 		return errors.New("content request failed")
 	}
-	wantedGenres := parseGenreIds(genres)
+	wantedGenres := parseGenreIds(f.genres)
 	for _, v := range tmdbRes.Results {
 		if len(wantedGenres) > 0 && !anyGenreMatches(v.GenreIds, wantedGenres) {
+			continue
+		}
+		if f.year > 0 {
+			d := v.ReleaseDate
+			if d == "" {
+				d = v.FirstAirDate
+			}
+			// "This year or newer" - same semantics as the release_date.gte
+			// param used for the non-trending discover* functions.
+			releaseYear, err := strconv.Atoi(strings.SplitN(d, "-", 2)[0])
+			if err != nil || releaseYear < f.year {
+				continue
+			}
+		}
+		if f.minRating > 0 && float64(v.VoteAverage) < f.minRating {
 			continue
 		}
 		resp.Results = append(
@@ -227,8 +268,7 @@ func anyGenreMatches(have []int, wanted []int) bool {
 }
 
 func (s *Service) discoverMovieInTheatres(
-	genres string,
-	providers string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
@@ -237,8 +277,10 @@ func (s *Service) discoverMovieInTheatres(
 			ReleaseDateMin:     time.Now().AddDate(0, 0, -40),
 			ReleaseDateMax:     time.Now().AddDate(0, 0, 2),
 			WithReleaseType:    "2|3",
-			WithGenres:         genres,
-			WithWatchProviders: providers,
+			WithGenres:         f.genres,
+			WithWatchProviders: f.providers,
+			Year:               f.year,
+			MinRating:          f.minRating,
 		},
 		meta.PageParams.Page,
 		meta.Region,
@@ -261,8 +303,7 @@ func (s *Service) discoverMovieInTheatres(
 }
 
 func (s *Service) discoverMovieUpcoming(
-	genres string,
-	providers string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
@@ -271,8 +312,10 @@ func (s *Service) discoverMovieUpcoming(
 			ReleaseDateMin:     time.Now(),
 			ReleaseDateMax:     time.Now().AddDate(0, 1, 0),
 			WithReleaseType:    "2|3",
-			WithGenres:         genres,
-			WithWatchProviders: providers,
+			WithGenres:         f.genres,
+			WithWatchProviders: f.providers,
+			Year:               f.year,
+			MinRating:          f.minRating,
 		},
 		meta.PageParams.Page,
 		meta.Region,
@@ -295,13 +338,17 @@ func (s *Service) discoverMovieUpcoming(
 }
 
 func (s *Service) discoverMoviePopular(
-	genres string,
-	providers string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
 	tmdbRes, err := s.tmdb.DiscoverMovies(
-		tmdb.DiscoverOptions{WithGenres: genres, WithWatchProviders: providers},
+		tmdb.DiscoverOptions{
+			WithGenres:         f.genres,
+			WithWatchProviders: f.providers,
+			Year:               f.year,
+			MinRating:          f.minRating,
+		},
 		meta.PageParams.Page,
 		meta.Region,
 	)
@@ -323,8 +370,7 @@ func (s *Service) discoverMoviePopular(
 }
 
 func (s *Service) discoverTvUpcoming(
-	genres string,
-	providers string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
@@ -333,8 +379,10 @@ func (s *Service) discoverTvUpcoming(
 			ReleaseDateMin:     time.Now(),
 			ReleaseDateMax:     time.Now().AddDate(0, 1, 0),
 			WithReleaseType:    "2|3",
-			WithGenres:         genres,
-			WithWatchProviders: providers,
+			WithGenres:         f.genres,
+			WithWatchProviders: f.providers,
+			Year:               f.year,
+			MinRating:          f.minRating,
 		},
 		meta.PageParams.Page,
 		meta.Region,
@@ -357,13 +405,17 @@ func (s *Service) discoverTvUpcoming(
 }
 
 func (s *Service) discoverTvPopular(
-	genres string,
-	providers string,
+	f discoverFilters,
 	meta domain.DiscoverRequestMeta,
 	resp *domain.DiscoverResponse,
 ) error {
 	tmdbRes, err := s.tmdb.DiscoverShows(
-		tmdb.DiscoverOptions{WithGenres: genres, WithWatchProviders: providers},
+		tmdb.DiscoverOptions{
+			WithGenres:         f.genres,
+			WithWatchProviders: f.providers,
+			Year:               f.year,
+			MinRating:          f.minRating,
+		},
 		meta.PageParams.Page,
 		meta.Region,
 	)

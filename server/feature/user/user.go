@@ -53,6 +53,12 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 	if ur.RatingStep != nil {
 		user.RatingStep = ur.RatingStep
 	}
+	if ur.HideDiscoverPeople != nil {
+		user.HideDiscoverPeople = ur.HideDiscoverPeople
+	}
+	if ur.HideTags != nil {
+		user.HideTags = ur.HideTags
+	}
 	s.db.Save(&user)
 	return entity.UserSettings{
 		Private:                  user.Private,
@@ -61,6 +67,8 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 		IncludePreviouslyWatched: user.IncludePreviouslyWatched,
 		AutomateShowStatuses:     user.AutomateShowStatuses,
 		Country:                  user.Country,
+		HideDiscoverPeople:       user.HideDiscoverPeople,
+		HideTags:                 user.HideTags,
 	}, nil
 }
 
@@ -81,6 +89,8 @@ func (s *Service) UserGetSettings(userId uint) (entity.UserSettings, error) {
 		Country:                  user.Country,
 		RatingSystem:             user.RatingSystem,
 		RatingStep:               user.RatingStep,
+		HideDiscoverPeople:       user.HideDiscoverPeople,
+		HideTags:                 user.HideTags,
 	}, nil
 }
 

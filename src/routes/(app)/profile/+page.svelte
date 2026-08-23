@@ -32,6 +32,8 @@
 	let countryDisabled = $state(false);
 	let includePreviouslyWatchedDisabled = $state(false);
 	let automateShowStatusesDisabled = $state(false);
+	let hideDiscoverPeopleDisabled = $state(false);
+	let hideTagsDisabled = $state(false);
 	let pwChangeModalOpen = $state(false);
 	let getProfilePromise = $state(getProfile());
 	let jellyfinSyncModalOpen = $state(false);
@@ -302,6 +304,38 @@
 						includePreviouslyWatchedDisabled = true;
 						updateUserSetting("includePreviouslyWatched", on, () => {
 							includePreviouslyWatchedDisabled = false;
+						});
+					}}
+				/>
+			</Setting>
+
+			<Setting
+				title="Hide People on Discover"
+				desc="Hide the 'People' filter on the Discover page?"
+				row
+			>
+				<Checkbox
+					name="hideDiscoverPeople"
+					disabled={hideDiscoverPeopleDisabled}
+					value={settings?.hideDiscoverPeople}
+					toggled={(on) => {
+						hideDiscoverPeopleDisabled = true;
+						updateUserSetting("hideDiscoverPeople", on, () => {
+							hideDiscoverPeopleDisabled = false;
+						});
+					}}
+				/>
+			</Setting>
+
+			<Setting title="Hide Tags" desc="Hide tags UI throughout the app?" row>
+				<Checkbox
+					name="hideTags"
+					disabled={hideTagsDisabled}
+					value={settings?.hideTags}
+					toggled={(on) => {
+						hideTagsDisabled = true;
+						updateUserSetting("hideTags", on, () => {
+							hideTagsDisabled = false;
 						});
 					}}
 				/>

@@ -13,6 +13,7 @@
 		MediaTypeE,
 		SearchType,
 		type DiscoverRequest,
+		type DropDownItem,
 		type Media,
 		type PaginationResponse,
 	} from "@/types";
@@ -25,21 +26,38 @@
 	import FilterDropDown from "./FilterDropDown.svelte";
 	import { resolve } from "$app/paths";
 	import Checkbox from "@/lib/Checkbox.svelte";
+	import DropDown from "@/lib/DropDown.svelte";
 	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
 	import GenreFilter from "./GenreFilter.svelte";
 	import ProviderFilter from "./ProviderFilter.svelte";
+	import { store } from "@/store.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
+
+	const currentYear = new Date().getFullYear();
+	// "X or newer", same style as the rating options below (not an exact year).
+	const yearOptions: DropDownItem[] = [
+		{ id: 0, value: "Any Year" },
+		...Array.from({ length: currentYear - 1900 + 2 }, (_, i) => currentYear + 1 - i).map(
+			(y) => ({ id: y, value: `${y}+` }) as DropDownItem,
+		),
+	];
+	const ratingOptions: DropDownItem[] = [
+		{ id: 0, value: "Any Rating" },
+		{ id: 9, value: "9+" },
+		{ id: 8, value: "8+" },
+		{ id: 7, value: "7+" },
+		{ id: 6, value: "6+" },
+		{ id: 5, value: "5+" },
+	];
 
 	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
 	let hideWatchedFilter = $state(false);
 	let selectedGenres: number[] = $state([]);
 	let selectedProviders: number[] = $state([]);
-	// Unlike genres, TMDB gives us no per-item provider data on trending
-	// results, so there's no server-side post-filter trick available here -
-	// providers are simply unsupported for Trending.
-	let providerFilterSupported = $derived(discoverFilter !== DiscoverFilter.trending);
+	let selectedYear: string | number = $state(0);
+	let selectedMinRating: string | number = $state(0);
 	let discoverType: SearchType | undefined = $derived.by(() => {
 		const t = page.url.searchParams.get("type");
 		if (t) {
@@ -47,19 +65,42 @@
 		}
 		return SearchType.multi;
 	});
+	// Genre/Provider lists are per movie/tv, and the pickers only ever load
+	// options for those two types.
+	let typeFilterSupported = $derived(
+		discoverType === SearchType.movie || discoverType === SearchType.show,
+	);
+	let genreDisabledReason = $derived(
+		typeFilterSupported ? "" : "Only available for Movies or Shows.",
+	);
+	// Unlike genres, TMDB gives us no per-item provider data on trending
+	// results, so there's no server-side post-filter trick available here -
+	// providers are simply unsupported for Trending.
+	let providerFilterSupported = $derived(discoverFilter !== DiscoverFilter.trending);
+	let providerDisabledReason = $derived(
+		!typeFilterSupported
+			? "Only available for Movies or Shows."
+			: !providerFilterSupported
+				? "Not available for Trending (TMDB doesn't expose providers on trending results)."
+				: "",
+	);
 	let nextLoadParams: DiscoverRequest = $derived({
 		page: dataLoader.state.page + 1,
 		type: discoverType,
 		filter: discoverFilter,
-		// Pipe separated = TMDB "match any of these genres" (OR), not AND.
-		// Supported for every filter mode, including Trending: the server
-		// filters trending results itself using the genre_ids TMDB already
-		// includes on them, since /trending has no genre query param.
+		// Pipe separated = TMDB "match any of these genres/providers" (OR),
+		// not AND. Genres/year/rating are supported for every filter mode,
+		// including Trending: the server filters trending results itself
+		// using data TMDB already includes on them (genre_ids, release date,
+		// vote_average). Providers can't do that (no per-item provider data
+		// on trending results at all), so those are dropped for Trending.
 		genres: selectedGenres.length > 0 ? selectedGenres.join("|") : undefined,
 		providers:
 			providerFilterSupported && selectedProviders.length > 0
 				? selectedProviders.join("|")
 				: undefined,
+		year: selectedYear ? Number(selectedYear) : undefined,
+		minRating: selectedMinRating ? Number(selectedMinRating) : undefined,
 	});
 
 	async function load(signal: AbortSignal) {
@@ -129,6 +170,7 @@
 				<MediaTypeFilter
 					active={discoverType}
 					disabled={false}
+					hidePeople={store.userSettings?.hideDiscoverPeople}
 					onChange={(nowActive) => {
 						// Reset discoverFilter as we change type filter
 						// to avoid going into new type filter with unsupported
@@ -139,22 +181,48 @@
 				/>
 			</div>
 			<div class="pagetitle-filters">
+				<div class="hide-watched">
+					<span>Hide watched</span>
+					<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
+				</div>
+				<FilterPopover label="Year" active={!!selectedYear}>
+					<DropDown
+						placeholder="Any Year"
+						options={yearOptions}
+						isDropDownItem={true}
+						bind:active={selectedYear}
+						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
+						showActiveElementsInOptions={true}
+					/>
+				</FilterPopover>
 				<FilterPopover
-					active={hideWatchedFilter ||
-						selectedGenres.length > 0 ||
-						(providerFilterSupported && selectedProviders.length > 0)}
+					label="Genres"
+					active={selectedGenres.length > 0}
+					disabled={!!genreDisabledReason}
+					disabledReason={genreDisabledReason}
 				>
-					<div class="filter-row">
-						<span>Hide watched</span>
-						<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
-					</div>
-					<div class="filter-section">
-						<GenreFilter
-							{discoverType}
-							bind:active={selectedGenres}
-							onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
-						/>
-					</div>
+					<GenreFilter
+						{discoverType}
+						bind:active={selectedGenres}
+						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
+					/>
+				</FilterPopover>
+				<FilterPopover label="Rating" active={!!selectedMinRating}>
+					<DropDown
+						placeholder="Any Rating"
+						options={ratingOptions}
+						isDropDownItem={true}
+						bind:active={selectedMinRating}
+						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
+						showActiveElementsInOptions={true}
+					/>
+				</FilterPopover>
+				<FilterPopover
+					label="Streaming"
+					active={providerFilterSupported && selectedProviders.length > 0}
+					disabled={!!providerDisabledReason}
+					disabledReason={providerDisabledReason}
+				>
 					<ProviderFilter
 						{discoverType}
 						disabled={!providerFilterSupported}
@@ -162,6 +230,22 @@
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
 					/>
 				</FilterPopover>
+				{#if hideWatchedFilter || selectedGenres.length > 0 || selectedProviders.length > 0 || selectedYear || selectedMinRating}
+					<button
+						type="button"
+						class="plain reset-all"
+						onclick={() => {
+							hideWatchedFilter = false;
+							selectedGenres = [];
+							selectedProviders = [];
+							selectedYear = 0;
+							selectedMinRating = 0;
+							dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+						}}
+					>
+						✕ Reset
+					</button>
+				{/if}
 				<FilterDropDown
 					{discoverType}
 					bind:active={discoverFilter}
@@ -232,24 +316,27 @@
 	.pagetitle-filters {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		flex-wrap: wrap;
+		gap: 14px;
 		margin-left: auto;
 	}
 
-	.filter-row {
+	.hide-watched {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding-bottom: 8px;
-		margin-bottom: 4px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		gap: 8px;
+		font-size: 14px;
 	}
 
-	.filter-section {
-		padding-bottom: 8px;
-		margin-bottom: 4px;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	.reset-all {
+		width: min-content;
+		white-space: nowrap;
+		font-size: 14px;
+		color: $text-color-accent;
+
+		&:hover {
+			color: $text-color;
+		}
 	}
 
 	.content {

@@ -63,6 +63,10 @@ type UserSettings struct {
 	RatingSystem *int `json:"ratingSystem" binding:"omitempty,max=3"`
 	// Rating step for supported rating systems (frontend only, enum goes up to 2).
 	RatingStep *int `json:"ratingStep" binding:"omitempty,max=2"`
+	// If the "People" media type filter should be hidden on the Discover page (frontend only).
+	HideDiscoverPeople *bool `gorm:"default:false" json:"hideDiscoverPeople"`
+	// If tags UI (nav menu, add-to-tag buttons) should be hidden (frontend only).
+	HideTags *bool `gorm:"default:false" json:"hideTags"`
 }
 
 // Public user details for search results

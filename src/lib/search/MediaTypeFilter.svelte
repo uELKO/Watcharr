@@ -7,10 +7,11 @@
 	interface Props {
 		active?: string;
 		disabled?: boolean;
+		hidePeople?: boolean;
 		onChange: (nowActive: FilterType) => void;
 	}
 
-	let { active, disabled, onChange }: Props = $props();
+	let { active, disabled, hidePeople, onChange }: Props = $props();
 </script>
 
 <div class:disabled>
@@ -37,13 +38,15 @@
 			<Icon i="gamepad" wh={20} /> Games
 		</button>
 	{/if}
-	<button
-		class="plain"
-		data-active={active === "person"}
-		onclick={() => onChange("person")}
-	>
-		<Icon i="people-nocircle" wh={20} /> People
-	</button>
+	{#if !hidePeople}
+		<button
+			class="plain"
+			data-active={active === "person"}
+			onclick={() => onChange("person")}
+		>
+			<Icon i="people-nocircle" wh={20} /> People
+		</button>
+	{/if}
 </div>
 
 <style lang="scss">

@@ -319,24 +319,26 @@
 					<FilterMenu />
 				{/if}
 			{/if}
-			<button
-				class="plain other tag"
-				onclick={() => {
-					closeAllSubMenus("tag");
-					tagMenuShown = !tagMenuShown;
-				}}
-				use:tooltip={{ text: "Tags", pos: "bot", condition: !tagMenuShown }}
-			>
-				<Icon i="tag" />
-			</button>
-			{#if tagMenuShown}
-				<TagMenu
-					onTagClick={(tag) => {
-						goto(resolve(`/tag/${tag.id}`));
-						tagMenuShown = false;
+			{#if !store.userSettings?.hideTags}
+				<button
+					class="plain other tag"
+					onclick={() => {
+						closeAllSubMenus("tag");
+						tagMenuShown = !tagMenuShown;
 					}}
-					showManageBtn={true}
-				/>
+					use:tooltip={{ text: "Tags", pos: "bot", condition: !tagMenuShown }}
+				>
+					<Icon i="tag" />
+				</button>
+				{#if tagMenuShown}
+					<TagMenu
+						onTagClick={(tag) => {
+							goto(resolve(`/tag/${tag.id}`));
+							tagMenuShown = false;
+						}}
+						showManageBtn={true}
+					/>
+				{/if}
 			{/if}
 			<button
 				class="plain other discover"

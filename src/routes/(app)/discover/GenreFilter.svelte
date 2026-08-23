@@ -1,12 +1,13 @@
-<!-- Genre picker for the Discover FilterPopover: a multi-select checklist
-     (JustWatch-style "match any of these genres"), not a single-select
-     dropdown. Only meaningful for movie/show discover types (TMDB genre
-     lists are per movie/tv). Works for every filter mode including
-     Trending: the server filters trending results itself using the
-     genre_ids TMDB already includes on them, since /trending has no genre
-     query param like /discover does. -->
+<!-- Genre picker: a multi-select checklist (JustWatch-style "match any of
+     these genres"), not a single-select dropdown. Only meaningful for
+     movie/show discover types (TMDB genre lists are per movie/tv) - the
+     parent gates access to this whole filter (disables its trigger button)
+     when that's not the case, so this component doesn't need to render its
+     own disabled state. Works for every filter mode including Trending: the
+     server filters trending results itself using the genre_ids TMDB already
+     includes on them, since /trending has no genre query param like
+     /discover does. -->
 <script lang="ts">
-	import tooltip from "@/lib/actions/tooltip";
 	import { req } from "@/lib/util/api";
 	import { SearchType } from "@/types";
 
@@ -22,7 +23,6 @@
 	let wrongType = $derived(
 		discoverType !== SearchType.movie && discoverType !== SearchType.show,
 	);
-	let disabledReason = $derived(wrongType ? "Only available for Movies or Shows." : "");
 
 	let genres: { id: number; name: string }[] = $state([]);
 	let loadedFor: string | undefined = $state();
@@ -41,11 +41,19 @@
 			params: { type: tmdbType },
 		});
 		loadedFor = discoverType;
-		// The genre list (and ids) differ between movie/show, so a previously
-		// selected genre doesn't necessarily mean anything anymore.
+		// The genre list (and ids) differ between movie/show, so only drop
+		// selected ids that don't actually exist in the freshly loaded list -
+		// don't blindly clear everything just because we (re)fetched (this
+		// component remounts every time its FilterPopover panel closes and
+		// reopens, which would otherwise wipe the selection on every toggle
+		// even when discoverType never changed).
 		if (active.length > 0) {
-			active = [];
-			onChange();
+			const known = new Set(genres.map((g) => g.id));
+			const stillValid = active.filter((id) => known.has(id));
+			if (stillValid.length !== active.length) {
+				active = stillValid;
+				onChange();
+			}
 		}
 	}
 
@@ -65,27 +73,20 @@
 	});
 </script>
 
-<div
-	class="genre-filter"
-	class:disabled={wrongType}
-	use:tooltip={{ text: disabledReason, pos: "left", condition: !!disabledReason }}
->
-	<div class="genre-filter-header">
-		<span>Genre</span>
-		{#if active.length > 0}
-			<button
-				type="button"
-				class="plain reset"
-				onclick={() => {
-					active = [];
-					onChange();
-				}}
-			>
-				Reset
-			</button>
-		{/if}
-	</div>
-	{#if !wrongType && genres.length > 0}
+<div class="genre-filter">
+	{#if active.length > 0}
+		<button
+			type="button"
+			class="plain reset"
+			onclick={() => {
+				active = [];
+				onChange();
+			}}
+		>
+			Reset
+		</button>
+	{/if}
+	{#if genres.length > 0}
 		<ul>
 			{#each genres as g (g.id)}
 				<li>
@@ -109,23 +110,13 @@
 		flex-flow: column;
 		gap: 4px;
 
-		&.disabled {
-			opacity: 0.6;
-		}
-
-		.genre-filter-header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 10px;
-
-			.reset {
-				width: min-content;
-				white-space: nowrap;
-				font-size: 12px;
-				text-decoration: underline;
-				color: $text-color;
-			}
+		.reset {
+			align-self: flex-end;
+			width: min-content;
+			white-space: nowrap;
+			font-size: 12px;
+			text-decoration: underline;
+			color: $text-color;
 		}
 
 		ul {

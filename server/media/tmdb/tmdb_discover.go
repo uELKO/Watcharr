@@ -87,8 +87,19 @@ func (t *TMDB) applyDiscoverOptionsToMap(
 		releaseDateMaxKey = "first_air_date.lte"
 		withReleaseTypeKey = "with_type"
 	}
-	if !o.ReleaseDateMin.IsZero() {
-		m[releaseDateMinKey] = o.ReleaseDateMin.Format("2006-01-02")
+	// o.Year ("from this year on") and o.ReleaseDateMin (eg the Upcoming/In
+	// Theatres modes' own fixed date range) both want to set the same *.gte
+	// param - use whichever is more restrictive (later date) rather than
+	// letting one silently overwrite the other.
+	releaseDateMin := o.ReleaseDateMin
+	if o.Year > 0 {
+		yearStart := time.Date(o.Year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		if releaseDateMin.IsZero() || yearStart.After(releaseDateMin) {
+			releaseDateMin = yearStart
+		}
+	}
+	if !releaseDateMin.IsZero() {
+		m[releaseDateMinKey] = releaseDateMin.Format("2006-01-02")
 	}
 	if !o.ReleaseDateMax.IsZero() {
 		m[releaseDateMaxKey] = o.ReleaseDateMax.Format("2006-01-02")
@@ -104,5 +115,8 @@ func (t *TMDB) applyDiscoverOptionsToMap(
 		// Same param name for both. watch_region (required for this to take
 		// effect) is added by the caller (DiscoverMovies/DiscoverShows).
 		m["with_watch_providers"] = o.WithWatchProviders
+	}
+	if o.MinRating > 0 {
+		m["vote_average.gte"] = strconv.FormatFloat(o.MinRating, 'f', -1, 64)
 	}
 }

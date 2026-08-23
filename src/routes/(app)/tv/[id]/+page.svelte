@@ -211,7 +211,9 @@
 							{/if}
 							{#if show.watched}
 								<div class="other-side">
-									<AddToTagButton watchedItem={show.watched} />
+									{#if !store.userSettings?.hideTags}
+										<AddToTagButton watchedItem={show.watched} />
+									{/if}
 									<button
 										onclick={() => {
 											if (show?.watched?.pinned) {

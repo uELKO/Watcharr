@@ -1,19 +1,16 @@
-<!-- Streaming-provider picker for the Discover FilterPopover: a multi-select
-     checklist (match any of these providers), same pattern as GenreFilter,
-     but with each provider's own TMDB logo instead of just text. Only
-     meaningful for movie/show discover types (provider lists are per
-     movie/tv), and unlike genres, NOT available for Trending: TMDB doesn't
-     include per-item watch-provider data on trending results (unlike
-     genre_ids), so there's no cheap way to post-filter those results
-     server-side like we do for genres. -->
+<!-- Streaming-provider picker: a multi-select checklist (match any of these
+     providers), same pattern as GenreFilter, but with each provider's own
+     TMDB logo instead of just text. The parent gates access to this whole
+     filter (disables its trigger button, with a tooltip explaining why) for
+     wrong types and for Trending, so this component doesn't render its own
+     disabled state - `disabled` here only stops it from fetching/rendering
+     when the parent's trigger couldn't be opened anyway. -->
 <script lang="ts">
-	import tooltip from "@/lib/actions/tooltip";
 	import { req } from "@/lib/util/api";
 	import { SearchType } from "@/types";
 
 	interface Props {
 		discoverType: SearchType | undefined;
-		/** Set when the current mode (Trending) doesn't support provider filtering. */
 		disabled?: boolean;
 		/** Selected TMDB watch provider ids. */
 		active?: number[];
@@ -29,13 +26,6 @@
 
 	let wrongType = $derived(
 		discoverType !== SearchType.movie && discoverType !== SearchType.show,
-	);
-	let disabledReason = $derived(
-		wrongType
-			? "Only available for Movies or Shows."
-			: disabled
-				? "Not available for Trending (TMDB doesn't expose providers on trending results)."
-				: "",
 	);
 	let effectivelyDisabled = $derived(disabled || wrongType);
 
@@ -95,26 +85,19 @@
 	});
 </script>
 
-<div
-	class="provider-filter"
-	class:disabled={effectivelyDisabled}
-	use:tooltip={{ text: disabledReason, pos: "left", condition: !!disabledReason }}
->
-	<div class="provider-filter-header">
-		<span>Streaming Provider</span>
-		{#if active.length > 0}
-			<button
-				type="button"
-				class="plain reset"
-				onclick={() => {
-					active = [];
-					onChange();
-				}}
-			>
-				Reset
-			</button>
-		{/if}
-	</div>
+<div class="provider-filter">
+	{#if active.length > 0}
+		<button
+			type="button"
+			class="plain reset"
+			onclick={() => {
+				active = [];
+				onChange();
+			}}
+		>
+			Reset
+		</button>
+	{/if}
 	{#if !effectivelyDisabled && providers.length > 0}
 		<ul>
 			{#each providers as p (p.providerId)}
@@ -142,23 +125,13 @@
 		flex-flow: column;
 		gap: 4px;
 
-		&.disabled {
-			opacity: 0.6;
-		}
-
-		.provider-filter-header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 10px;
-
-			.reset {
-				width: min-content;
-				white-space: nowrap;
-				font-size: 12px;
-				text-decoration: underline;
-				color: $text-color;
-			}
+		.reset {
+			align-self: flex-end;
+			width: min-content;
+			white-space: nowrap;
+			font-size: 12px;
+			text-decoration: underline;
+			color: $text-color;
 		}
 
 		ul {

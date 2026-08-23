@@ -9,6 +9,7 @@
 	import tooltip from "@/lib/actions/tooltip.js";
 	import Icon from "@/lib/Icon.svelte";
 	import AddToTagButton from "@/lib/tag/AddToTagButton.svelte";
+	import { store } from "@/store.svelte";
 	import PageBackdrop from "@/lib/generic/PageBackdrop.svelte";
 	import MyReview from "@/lib/content/MyReview.svelte";
 	import ViewTrailerButton from "@/lib/content/ViewTrailerButton.svelte";
@@ -127,7 +128,9 @@
 							<ViewTrailerButton videos={game.videos} />
 							{#if game.watched}
 								<div class="other-side">
-									<AddToTagButton watchedItem={game.watched} />
+									{#if !store.userSettings?.hideTags}
+										<AddToTagButton watchedItem={game.watched} />
+									{/if}
 									<button
 										onclick={() => {
 											if (game?.watched?.pinned) {

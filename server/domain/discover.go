@@ -39,6 +39,12 @@ type DiscoverRequest struct {
 	// provider data on trending results to filter with client-side either,
 	// so this is unconditionally ignored for DiscoverFilterTrending.
 	Providers string `form:"providers"`
+	// Optional: exact release year to filter by. Like Genres, this works
+	// for DiscoverFilterTrending too via a server-side post-filter (trending
+	// results already include a release/first-air date).
+	Year int `form:"year"`
+	// Optional: minimum average rating (0-10). Same as Year re: Trending.
+	MinRating float64 `form:"minRating"`
 }
 
 // Extra data that we provide to the Discover service func.

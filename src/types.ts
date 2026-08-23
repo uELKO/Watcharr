@@ -247,6 +247,10 @@ export interface UserSettings {
 	 * Supported: 1, 0.5, 0.1 (must validate).
 	 */
 	ratingStep?: RatingStep;
+	/** Hide the "People" media type filter on the Discover page. */
+	hideDiscoverPeople?: boolean;
+	/** Hide tags UI (nav menu, add-to-tag buttons) throughout the app. */
+	hideTags?: boolean;
 }
 
 export enum RatingSystem {
@@ -447,6 +451,10 @@ export interface DiscoverRequest extends PaginationParams {
 	genres?: string;
 	/** Pipe separated TMDB watch provider ids. Only applies to movie/show discover, not Trending. */
 	providers?: string;
+	/** Exact release/first-air year. */
+	year?: number;
+	/** Minimum average rating (0-10). */
+	minRating?: number;
 }
 
 export interface PersonDetailsResponse {

@@ -871,6 +871,12 @@ type DiscoverOptions struct {
 	// watch_region to actually take effect - the caller's `region` param
 	// is used for that automatically when this is set.
 	WithWatchProviders string
+	// Minimum release year (inclusive) - "this year or newer", applied via
+	// release_date.gte/first_air_date.gte (merged with ReleaseDateMin,
+	// whichever is later wins). 0 means unset.
+	Year int
+	// Minimum average rating (0-10). 0 means unset.
+	MinRating float64
 }
 
 //
