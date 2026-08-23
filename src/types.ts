@@ -251,6 +251,8 @@ export interface UserSettings {
 	hideDiscoverPeople?: boolean;
 	/** Hide tags UI (nav menu, add-to-tag buttons) throughout the app. */
 	hideTags?: boolean;
+	/** Last-used Discover filter selection, JSON-encoded (frontend only). */
+	discoverFilters?: string;
 }
 
 export enum RatingSystem {

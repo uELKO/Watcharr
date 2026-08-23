@@ -26,10 +26,10 @@
 	import FilterDropDown from "./FilterDropDown.svelte";
 	import { resolve } from "$app/paths";
 	import Checkbox from "@/lib/Checkbox.svelte";
-	import DropDown from "@/lib/DropDown.svelte";
 	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
 	import GenreFilter from "./GenreFilter.svelte";
 	import ProviderFilter from "./ProviderFilter.svelte";
+	import SingleSelectFilter from "./SingleSelectFilter.svelte";
 	import { store } from "@/store.svelte";
 
 	const scroll = infScroll({ callback: onScrollToBottom });
@@ -84,6 +84,45 @@
 				? "Not available for Trending (TMDB doesn't expose providers on trending results)."
 				: "",
 	);
+	// Persisted (per-user, server-side) filter state, so the filter bar
+	// survives a refresh instead of resetting every time. Stored as an
+	// opaque JSON blob on the user's settings - the backend doesn't need to
+	// understand its shape, only the frontend encodes/decodes it.
+	interface DiscoverFilterState {
+		type?: SearchType;
+		filter?: DiscoverFilter;
+		hideWatched?: boolean;
+		genres?: number[];
+		providers?: number[];
+		year?: number;
+		minRating?: number;
+	}
+
+	function loadSavedFilters(): DiscoverFilterState | undefined {
+		const raw = store.userSettings?.discoverFilters;
+		if (!raw) return undefined;
+		try {
+			return JSON.parse(raw) as DiscoverFilterState;
+		} catch (err) {
+			console.error("discover: Failed to parse saved filters", err);
+			return undefined;
+		}
+	}
+
+	let lastPersistedFilters = store.userSettings?.discoverFilters || "";
+	let persistFiltersTimeout: ReturnType<typeof setTimeout> | undefined;
+
+	function persistFilters(json: string) {
+		clearTimeout(persistFiltersTimeout);
+		persistFiltersTimeout = setTimeout(() => {
+			lastPersistedFilters = json;
+			if (store.userSettings) store.userSettings.discoverFilters = json;
+			req.post("/user/update", { discoverFilters: json }).catch((err) => {
+				console.error("discover: Failed to persist filters", err);
+			});
+		}, 600);
+	}
+
 	let nextLoadParams: DiscoverRequest = $derived({
 		page: dataLoader.state.page + 1,
 		type: discoverType,
@@ -138,8 +177,44 @@
 		goto(resolve(`/discover?${curLocation.searchParams.toString()}`));
 	}
 
+	$effect(() => {
+		const snapshot: DiscoverFilterState = {
+			type: discoverType,
+			filter: discoverFilter,
+			hideWatched: hideWatchedFilter,
+			genres: selectedGenres,
+			providers: selectedProviders,
+			year: selectedYear ? Number(selectedYear) : undefined,
+			minRating: selectedMinRating ? Number(selectedMinRating) : undefined,
+		};
+		const json = JSON.stringify(snapshot);
+		if (json === lastPersistedFilters) return;
+		persistFilters(json);
+	});
+
 	onMount(() => {
-		dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+		const saved = loadSavedFilters();
+		if (saved) {
+			discoverFilter = saved.filter ?? discoverFilter;
+			hideWatchedFilter = saved.hideWatched ?? false;
+			selectedGenres = saved.genres ?? [];
+			selectedProviders = saved.providers ?? [];
+			selectedYear = saved.year ?? 0;
+			selectedMinRating = saved.minRating ?? 0;
+		}
+		// discoverType is derived from the URL - only apply the saved type
+		// when the URL doesn't already specify one (a shared/bookmarked link
+		// should win), and do it via a replaced navigation so it doesn't
+		// clutter browser history.
+		if (saved?.type && saved.type !== SearchType.multi && !page.url.searchParams.get("type")) {
+			const curLocation = new URL(page.url);
+			curLocation.searchParams.set("type", saved.type);
+			goto(resolve(`/discover?${curLocation.searchParams.toString()}`), {
+				replaceState: true,
+			});
+		} else {
+			dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
+		}
 	});
 
 	afterNavigate(() => {
@@ -154,6 +229,7 @@
 
 	onDestroy(() => {
 		console.debug("DISCOVER PAGE DESTROYED");
+		clearTimeout(persistFiltersTimeout);
 		scroll.destroy();
 		dataLoader.abortReq("page destroyed");
 	});
@@ -186,13 +262,10 @@
 					<Checkbox name="Hide watched" bind:value={hideWatchedFilter} />
 				</div>
 				<FilterPopover label="Year" active={!!selectedYear}>
-					<DropDown
-						placeholder="Any Year"
+					<SingleSelectFilter
 						options={yearOptions}
-						isDropDownItem={true}
 						bind:active={selectedYear}
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
-						showActiveElementsInOptions={true}
 					/>
 				</FilterPopover>
 				<FilterPopover
@@ -208,13 +281,10 @@
 					/>
 				</FilterPopover>
 				<FilterPopover label="Rating" active={!!selectedMinRating}>
-					<DropDown
-						placeholder="Any Rating"
+					<SingleSelectFilter
 						options={ratingOptions}
-						isDropDownItem={true}
 						bind:active={selectedMinRating}
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
-						showActiveElementsInOptions={true}
 					/>
 				</FilterPopover>
 				<FilterPopover
