@@ -11,13 +11,49 @@
 	import { req } from "@/lib/util/api";
 	import infScroll from "@/lib/util/infScroll";
 	import paginatedLoader from "@/lib/util/paginatedLoader.svelte";
-	import { clearActiveFilters, store } from "@/store.svelte";
+	import { clearActiveFilters, defaultSort, store } from "@/store.svelte";
 	import {
 		type Media,
 		type PaginationResponse,
 		type WatchedStatus,
 	} from "@/types";
 	import { onDestroy, onMount, untrack } from "svelte";
+	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
+	import MediaTypeFilter from "@/lib/search/MediaTypeFilter.svelte";
+	import PageTitle from "@/lib/generic/PageTitle.svelte";
+	import HomeStatusFilter from "./HomeStatusFilter.svelte";
+	import HomeSortFilter from "./HomeSortFilter.svelte";
+
+	let sortActive = $derived(
+		store.activeSort?.length === 2 &&
+			!!store.activeSort[1] &&
+			JSON.stringify(store.activeSort) !== JSON.stringify(defaultSort),
+	);
+
+	// Up Next, the Library filter bar, and the content below it (posters or
+	// grouped sections) all need to share the same effective width so their
+	// left/right edges line up - PosterList caps itself at 1200px in list
+	// view, while grouped view is capped at 1800px.
+	let contentWidth = $derived(groupedView ? 1800 : 1200);
+
+	// MediaTypeFilter (same component/style Discover uses) is single-select
+	// and uses "show" for TV, while store.activeFilters.type is a multi-
+	// select array using "tv" - map between the two so Home's Type button
+	// looks and behaves exactly like Discover's.
+	let activeMediaType = $derived.by(() => {
+		const t = store.activeFilters.type[0];
+		return t === "tv" ? "show" : t;
+	});
+
+	function setActiveMediaType(to: string | undefined) {
+		const mapped = to === "show" ? "tv" : to;
+		if (!mapped || store.activeFilters.type[0] === mapped) {
+			store.activeFilters.type = [];
+		} else {
+			store.activeFilters.type = [mapped];
+		}
+		store.activeFilters = store.activeFilters;
+	}
 
 	const scroll = infScroll({ callback: onScrollToBottom });
 	const dataLoader = paginatedLoader<Media, undefined>(load);
@@ -175,14 +211,41 @@
 	paginatedLoader.state.meta: {JSON.stringify(dataLoader.state.meta)}
 </span> -->
 
-<div class="capped-content">
+<div class="capped-content" style="max-width: {contentWidth}px">
 	<UpNext onUpdated={refreshAfterUpNextAction} />
 </div>
 
-<div class="view-toggle">
-	<button class="plain" onclick={() => (groupedView = !groupedView)}>
-		{groupedView ? "List view" : "Group by status"}
-	</button>
+<div class="home-controls" style="max-width: {contentWidth}px">
+	<PageTitle title="Library">
+		<div class="pagetitle-mediatypefilter">
+			<MediaTypeFilter
+				active={activeMediaType}
+				disabled={false}
+				hidePeople
+				onChange={(nowActive) => setActiveMediaType(nowActive)}
+			/>
+		</div>
+		<div class="pagetitle-filters">
+			<FilterPopover label="Status" active={store.activeFilters.status.length > 0}>
+				<HomeStatusFilter />
+			</FilterPopover>
+			<FilterPopover label="Sort" active={sortActive}>
+				<HomeSortFilter />
+			</FilterPopover>
+			{#if store.hasActiveFilters}
+				<button
+					type="button"
+					class="plain reset-all"
+					onclick={() => clearActiveFilters()}
+				>
+					✕ Reset
+				</button>
+			{/if}
+			<button class="plain view-toggle" onclick={() => (groupedView = !groupedView)}>
+				{groupedView ? "List view" : "Group by status"}
+			</button>
+		</div>
+	</PageTitle>
 </div>
 
 {#if groupedView}
@@ -286,18 +349,57 @@
 		margin: 0 auto;
 	}
 
-	.view-toggle {
-		display: flex;
-		justify-content: flex-end;
-		max-width: 1800px;
+	.home-controls {
+		// max-width set inline (1200 in list view to match PosterList's own
+		// cap, 1800 in grouped view to match .grouped-content) so the filter
+		// row's edges always line up with whichever content is shown below.
 		margin: 10px auto 0;
-		padding: 0 15px;
 
-		button {
-			width: min-content;
-			white-space: nowrap;
-			font-size: 14px;
+		// Match Up Next's heading (HorizontalList's h2) - PageTitle's own h2
+		// has no explicit size, so it falls back to the browser default.
+		:global(h2) {
+			font-size: 30px;
+			font-weight: bold;
 		}
+
+		// HorizontalList's h2 has margin-left:30px (vs PageTitle's own
+		// margin:0 15px on its wrapper) - match it so "Library" lines up
+		// exactly under "Up Next".
+		:global(.results-filters-header) {
+			margin-left: 30px;
+		}
+	}
+
+	.pagetitle-mediatypefilter {
+		@media screen and (max-width: 745px) {
+			width: 100%;
+			order: 2;
+		}
+	}
+
+	.pagetitle-filters {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 14px;
+		margin-left: auto;
+	}
+
+	.reset-all {
+		width: min-content;
+		white-space: nowrap;
+		font-size: 14px;
+		color: $text-color-accent;
+
+		&:hover {
+			color: $text-color;
+		}
+	}
+
+	button.view-toggle {
+		width: min-content;
+		white-space: nowrap;
+		font-size: 14px;
 	}
 
 	.empty-list {

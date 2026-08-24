@@ -279,8 +279,10 @@
 					<DetailedMenu />
 				{/if}
 			{/if}
-			<!-- Show on watched list and shared/followed watched lists -->
-			{#if page.url?.pathname === "/" || page.url?.pathname.includes("/lists/") || page.url?.pathname.includes("/tag/")}
+			<!-- Show on shared/followed watched lists and tag pages. Not on the
+			home watched list ("/") - that has its own inline Type/Status/Sort
+			filter bar instead of these nav icon menus. -->
+			{#if page.url?.pathname.includes("/lists/") || page.url?.pathname.includes("/tag/")}
 				<button
 					class="plain other sort"
 					onclick={() => {

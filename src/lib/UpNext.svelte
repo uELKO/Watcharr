@@ -175,7 +175,7 @@
 </script>
 
 {#if !loading && items.length > 0}
-	<HorizontalList title="Up Next">
+	<HorizontalList title="Up Next" center>
 		{#each items as item (item.watchedId)}
 			<li
 				class={activeId === item.watchedId ? "active" : ""}
