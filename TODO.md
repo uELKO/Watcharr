@@ -104,16 +104,23 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       as an opaque JSON blob (new `DiscoverFilters` setting) so refreshing the
       page no longer resets the filter bar.
 
-- [ ] **German metadata mode** (titles, overviews, covers via TMDB — related to #772)
-      Don't build from scratch: PR #1079 already implements this well — a global
-      `TMDB_LANG` server setting (dropdown, defaults en-US), with automatic English
-      fallback per-field when a translation is missing (title/overview/poster), applied
-      on detail pages, add/import, and search. Author runs it daily in production
-      (French). Currently `CONFLICTING` against current `dev` (needs a rebase) and is a
-      global, not per-user, setting — fine for our single-user case. Plan: fetch the PR
-      branch, rebase onto our `custom-dev`, resolve conflicts, adopt as-is or set
-      TMDB_LANG=de-DE by default for us.
+- [x] **German metadata mode** (titles, overviews, covers via TMDB — related to #772)
+      Adapted from upstream PR #1079 (not copy-pasted — its base predates a big
+      refactor that moved movie/tv/search logic directly onto `*TMDB`, so the
+      fallback logic was ported onto that current shape). New global `TMDB_LANG`
+      server setting (dropdown, defaults en-US); English fallback per-field when
+      a translation is missing (title/overview/poster on movie/show details,
+      overview on search), only firing the extra en-US request when something
+      is actually missing. New `/content/languages` endpoint backs the dropdown;
+      picking a Default Country pre-fills a matching language (overridable).
       https://github.com/sbondCo/Watcharr/pull/1079
+
+- [x] **Poster hover: move TMDB rating pill to top-left** (not from an upstream
+      issue). It was overlapping another top-right badge in the hover overlay.
+
+- [x] **Settings: hide "Following" nav button** (not from an upstream issue).
+      Same `hideDiscoverPeople`/`hideTags` pattern — new `hideFollowing`
+      per-user setting, toggle on the Profile page.
 
 ## Larger builds
 
