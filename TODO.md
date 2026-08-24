@@ -122,6 +122,20 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       Same `hideDiscoverPeople`/`hideTags` pattern — new `hideFollowing`
       per-user setting, toggle on the Profile page.
 
+- [x] **Home: unify "Library" filter bar with Discover's UI** (not from an
+      upstream issue, our own idea). Replaced the nav-bar Filter/Sort icon
+      menus on Home with an inline bar using the exact same `PageTitle` +
+      `MediaTypeFilter` + `FilterPopover` structure Discover uses — a
+      "Library" title, the same Movies/TV Shows buttons (now single-select,
+      mapped onto the existing multi-select `Filters.type`), Status/Sort as
+      FilterPopover panels pushed right. Nav-bar Filter/Sort icons stay for
+      Lists/Tag pages, which weren't part of this ask. Along the way: fixed
+      Up Next's single-card row being pinned to the left instead of centered
+      (`HorizontalList` gained a `center` prop using `justify-content: safe
+      center`), and made the filter bar's width track whichever content is
+      shown below (1200 in list view to match `PosterList`'s own cap, 1800 in
+      grouped view) so it doesn't overhang past the content.
+
 ## Larger builds
 
 - [ ] **#409** — Notifications for upcoming releases
