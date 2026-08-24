@@ -19,6 +19,7 @@
 	import Stat from "@/lib/stats/Stat.svelte";
 	import TwitchModal from "./modals/TwitchModal.svelte";
 	import RegionDropDown from "@/lib/RegionDropDown.svelte";
+	import LanguageDropDown from "@/lib/LanguageDropDown.svelte";
 	import TaskScheduleModal from "./modals/TaskScheduleModal.svelte";
 	import TrustedHeaderAuthModal from "./modals/TrustedHeaderAuthModal.svelte";
 	import { resolve } from "$app/paths";
@@ -39,9 +40,35 @@
 	let debugDisabled = $state(false);
 	let jfDisabled = $state(false);
 	let tmdbkDisabled = $state(false);
+	let tmdbLangDisabled = $state(false);
 	let plexHostDisabled = $state(false);
 	let countryDisabled = $state(false);
 	let useEmbyDisabled = $state(false);
+
+	// Update the default country, then pre-fill the metadata language to the
+	// one matching that country when such a translation exists (overridable
+	// afterwards via the Language dropdown).
+	async function onCountryChange(c: string) {
+		if (!serverConfig) return;
+		countryDisabled = true;
+		updateServerConfig("DEFAULT_COUNTRY", c, () => {
+			countryDisabled = false;
+		});
+		try {
+			const langs = await req.get<{ code: string; name: string }[]>(
+				`/content/languages`,
+			);
+			const match = langs.find((l) =>
+				l.code.toUpperCase().endsWith("-" + c.toUpperCase()),
+			);
+			if (match && serverConfig.TMDB_LANG !== match.code) {
+				serverConfig.TMDB_LANG = match.code;
+				updateServerConfig("TMDB_LANG", match.code, () => {});
+			}
+		} catch (err) {
+			console.error("onCountryChange: failed to pre-fill language", err);
+		}
+	}
 
 	async function getServerConfig() {
 		serverConfig = await req.get<ServerConfig>(`/server/config`);
@@ -148,12 +175,7 @@
 						<RegionDropDown
 							selectedCountry={serverConfig.DEFAULT_COUNTRY}
 							disabled={countryDisabled}
-							onChange={(c) => {
-								countryDisabled = true;
-								updateServerConfig("DEFAULT_COUNTRY", c, () => {
-									countryDisabled = false;
-								});
-							}}
+							onChange={(c) => onCountryChange(c)}
 						/>
 					</Setting>
 					<Setting
@@ -240,6 +262,21 @@
 								});
 							}}
 							disabled={tmdbkDisabled}
+						/>
+					</Setting>
+					<Setting
+						title="TMDB Language"
+						desc="Language for content metadata (titles, overviews, posters), e.g. de-DE. Applies to newly-fetched content."
+					>
+						<LanguageDropDown
+							selectedLang={serverConfig.TMDB_LANG}
+							disabled={tmdbLangDisabled}
+							onChange={(l) => {
+								tmdbLangDisabled = true;
+								updateServerConfig("TMDB_LANG", l, () => {
+									tmdbLangDisabled = false;
+								});
+							}}
 						/>
 					</Setting>
 					<Setting

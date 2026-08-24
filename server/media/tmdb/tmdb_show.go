@@ -38,6 +38,7 @@ func (t *TMDB) ShowDetails(o ShowDetailsOptions) (ShowDetails, error) {
 		slog.Error("ShowDetails: Request failed!", "error", err)
 		return ShowDetails{}, errors.New("request failed")
 	}
+	t.fillShowLangFallback(o.ID, resp)
 	resp.WatchProvidersTransformed = transformProviders(
 		&resp.WatchProviders,
 		o.Country)
@@ -49,6 +50,29 @@ func (t *TMDB) ShowDetails(o ShowDetailsOptions) (ShowDetails, error) {
 	}
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
+}
+
+// fillShowLangFallback backfills empty name/overview/poster fields from
+// en-US when the configured language has no translation for them (TMDB
+// returns empty fields in that case rather than falling back itself).
+func (t *TMDB) fillShowLangFallback(id string, resp *ShowDetails) {
+	if t.GetLang() == "en-US" || (resp.Overview != "" && resp.Name != "" && resp.PosterPath != "") {
+		return
+	}
+	en := new(ShowDetails)
+	if err := t.req("/tv/"+id, map[string]string{"language": "en-US"}, &en); err != nil {
+		slog.Error("fillShowLangFallback: Request failed!", "error", err)
+		return
+	}
+	if resp.Overview == "" {
+		resp.Overview = en.Overview
+	}
+	if resp.Name == "" {
+		resp.Name = en.Name
+	}
+	if resp.PosterPath == "" {
+		resp.PosterPath = en.PosterPath
+	}
 }
 
 func (t *TMDB) ShowCredits(id string) (ContentCredits, error) {

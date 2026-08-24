@@ -73,8 +73,47 @@ func (t *TMDB) SearchMulti(
 		slog.Error("SearchMulti: Request failed!", "error", err)
 		return SearchMultiResponse{}, errors.New("request failed")
 	}
+	t.fillSearchMultiLangFallback(o, resp)
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
+}
+
+// fillSearchMultiLangFallback backfills empty overviews from en-US when the
+// configured language has no translation for them (TMDB returns an empty
+// overview in that case rather than falling back itself). Only does the
+// extra en-US request when something is actually missing.
+func (t *TMDB) fillSearchMultiLangFallback(o SearchUniversalOptions, resp *SearchMultiResponse) {
+	if t.GetLang() == "en-US" {
+		return
+	}
+	missing := false
+	for i := range resp.Results {
+		if resp.Results[i].Overview == "" {
+			missing = true
+			break
+		}
+	}
+	if !missing {
+		return
+	}
+	en := new(SearchMultiResponse)
+	params := o.AsParamsMap()
+	params["language"] = "en-US"
+	if err := t.req("/search/multi", params, &en); err != nil {
+		slog.Error("fillSearchMultiLangFallback: Request failed!", "error", err)
+		return
+	}
+	enOverview := make(map[int]string, len(en.Results))
+	for i := range en.Results {
+		enOverview[en.Results[i].ID] = en.Results[i].Overview
+	}
+	for i := range resp.Results {
+		if resp.Results[i].Overview == "" {
+			if ov := enOverview[resp.Results[i].ID]; ov != "" {
+				resp.Results[i].Overview = ov
+			}
+		}
+	}
 }
 
 type SearchMoviesOptions struct {

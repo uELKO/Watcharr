@@ -38,6 +38,7 @@ func (t *TMDB) MovieDetails(o MovieDetailsOptions) (MovieDetails, error) {
 		slog.Error("MovieDetails: Request failed!", "error", err)
 		return MovieDetails{}, errors.New("request failed")
 	}
+	t.fillMovieLangFallback(o.ID, resp)
 	resp.WatchProvidersTransformed = transformProviders(
 		&resp.WatchProviders,
 		o.Country)
@@ -49,6 +50,29 @@ func (t *TMDB) MovieDetails(o MovieDetailsOptions) (MovieDetails, error) {
 	}
 	ContentStore.Set(cacheKey, resp, time.Hour*24)
 	return *resp, nil
+}
+
+// fillMovieLangFallback backfills empty title/overview/poster fields from
+// en-US when the configured language has no translation for them (TMDB
+// returns empty fields in that case rather than falling back itself).
+func (t *TMDB) fillMovieLangFallback(id string, resp *MovieDetails) {
+	if t.GetLang() == "en-US" || (resp.Overview != "" && resp.Title != "" && resp.PosterPath != "") {
+		return
+	}
+	en := new(MovieDetails)
+	if err := t.req("/movie/"+id, map[string]string{"language": "en-US"}, &en); err != nil {
+		slog.Error("fillMovieLangFallback: Request failed!", "error", err)
+		return
+	}
+	if resp.Overview == "" {
+		resp.Overview = en.Overview
+	}
+	if resp.Title == "" {
+		resp.Title = en.Title
+	}
+	if resp.PosterPath == "" {
+		resp.PosterPath = en.PosterPath
+	}
 }
 
 func (t *TMDB) MovieCredits(id string) (ContentCredits, error) {

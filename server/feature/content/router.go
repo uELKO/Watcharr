@@ -68,6 +68,8 @@ func (r *Router) AddRoutes() {
 	content.GET("/person/:id/credits", r.GetPersonCredits)
 	// Available regions for watch providers
 	content.GET("/regions", r.GetRegions)
+	// Available metadata languages (for the TMDB_LANG setting)
+	content.GET("/languages", r.GetLanguages)
 	// Available genres for movies/tv (Discover genre filter)
 	content.GET("/genres", r.GetGenres)
 	// Available streaming providers for movies/tv (Discover provider filter)
@@ -282,6 +284,15 @@ func (r *Router) GetRegions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, re)
+}
+
+func (r *Router) GetLanguages(c *gin.Context) {
+	langs, err := r.tmdb.Languages()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, langs)
 }
 
 func (r *Router) GetGenres(c *gin.Context) {
