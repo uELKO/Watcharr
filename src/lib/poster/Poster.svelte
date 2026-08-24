@@ -556,7 +556,7 @@
 			& > a {
 				height: 100%;
 				overflow: auto;
-				// Clears the PosterCommunityRating pill (top-right corner)
+				// Clears the PosterCommunityRating pill (top-left corner)
 				// so long titles don't run under it.
 				margin-top: 22px;
 			}
