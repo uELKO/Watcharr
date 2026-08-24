@@ -34,6 +34,7 @@
 	let automateShowStatusesDisabled = $state(false);
 	let hideDiscoverPeopleDisabled = $state(false);
 	let hideTagsDisabled = $state(false);
+	let hideFollowingDisabled = $state(false);
 	let pwChangeModalOpen = $state(false);
 	let getProfilePromise = $state(getProfile());
 	let jellyfinSyncModalOpen = $state(false);
@@ -336,6 +337,24 @@
 						hideTagsDisabled = true;
 						updateUserSetting("hideTags", on, () => {
 							hideTagsDisabled = false;
+						});
+					}}
+				/>
+			</Setting>
+
+			<Setting
+				title="Hide Following"
+				desc="Hide the 'Following' button in the nav menu?"
+				row
+			>
+				<Checkbox
+					name="hideFollowing"
+					disabled={hideFollowingDisabled}
+					value={settings?.hideFollowing}
+					toggled={(on) => {
+						hideFollowingDisabled = true;
+						updateUserSetting("hideFollowing", on, () => {
+							hideFollowingDisabled = false;
 						});
 					}}
 				/>

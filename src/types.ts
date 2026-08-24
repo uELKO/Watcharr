@@ -253,6 +253,8 @@ export interface UserSettings {
 	hideTags?: boolean;
 	/** Last-used Discover filter selection, JSON-encoded (frontend only). */
 	discoverFilters?: string;
+	/** Hide the "Following" nav menu button. */
+	hideFollowing?: boolean;
 }
 
 export enum RatingSystem {

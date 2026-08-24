@@ -67,6 +67,8 @@ type UserSettings struct {
 	HideDiscoverPeople *bool `gorm:"default:false" json:"hideDiscoverPeople"`
 	// If tags UI (nav menu, add-to-tag buttons) should be hidden (frontend only).
 	HideTags *bool `gorm:"default:false" json:"hideTags"`
+	// If the "Following" nav menu button should be hidden (frontend only).
+	HideFollowing *bool `gorm:"default:false" json:"hideFollowing"`
 	// Last-used Discover filter selection (type, filter mode, hide watched,
 	// genres, providers, year, min rating), as an opaque JSON blob the
 	// frontend encodes/decodes itself - restored on page load so filters

@@ -347,22 +347,24 @@
 			>
 				<Icon i="compass" wh={26} />
 			</button>
-			<button
-				class="plain other following"
-				onclick={() => {
-					closeAllSubMenus("following");
-					followingMenuShown = !followingMenuShown;
-				}}
-				use:tooltip={{
-					text: "Following",
-					pos: "bot",
-					condition: !followingMenuShown,
-				}}
-			>
-				<Icon i="people" wh={26} />
-			</button>
-			{#if followingMenuShown}
-				<FollowingMenu close={() => (followingMenuShown = false)} />
+			{#if !store.userSettings?.hideFollowing}
+				<button
+					class="plain other following"
+					onclick={() => {
+						closeAllSubMenus("following");
+						followingMenuShown = !followingMenuShown;
+					}}
+					use:tooltip={{
+						text: "Following",
+						pos: "bot",
+						condition: !followingMenuShown,
+					}}
+				>
+					<Icon i="people" wh={26} />
+				</button>
+				{#if followingMenuShown}
+					<FollowingMenu close={() => (followingMenuShown = false)} />
+				{/if}
 			{/if}
 			<button class="plain face" onclick={handleProfileClick}>:)</button>
 			{#if subMenuShown}

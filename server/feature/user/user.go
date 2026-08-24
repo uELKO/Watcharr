@@ -62,6 +62,9 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 	if ur.DiscoverFilters != nil {
 		user.DiscoverFilters = ur.DiscoverFilters
 	}
+	if ur.HideFollowing != nil {
+		user.HideFollowing = ur.HideFollowing
+	}
 	s.db.Save(&user)
 	return entity.UserSettings{
 		Private:                  user.Private,
@@ -73,6 +76,7 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 		HideDiscoverPeople:       user.HideDiscoverPeople,
 		HideTags:                 user.HideTags,
 		DiscoverFilters:          user.DiscoverFilters,
+		HideFollowing:            user.HideFollowing,
 	}, nil
 }
 
@@ -96,6 +100,7 @@ func (s *Service) UserGetSettings(userId uint) (entity.UserSettings, error) {
 		HideDiscoverPeople:       user.HideDiscoverPeople,
 		HideTags:                 user.HideTags,
 		DiscoverFilters:          user.DiscoverFilters,
+		HideFollowing:            user.HideFollowing,
 	}, nil
 }
 
