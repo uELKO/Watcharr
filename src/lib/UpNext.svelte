@@ -1,13 +1,16 @@
-<!-- "Up Next" row: next unwatched episode per in-progress (Watching) show,
-     with a quick "mark watched" action. Complements the homepage's
-     "Watching" section (which shows where you left off) by showing what to
-     watch next. Uses the exact same PosterEpisodeBadge/PosterProgressBar/
-     PosterRating/PosterStatus components as Poster.svelte so both the look
-     and the hover menu are identical, not just similar. The status picker's
-     FINISHED option is repurposed to mean "mark this next episode watched"
-     (the point of this row) rather than the show as a whole; every other
-     option (PLANNED/WATCHING/HOLD/DROPPED/DELETE) updates the show exactly
-     like it would from any other poster. -->
+<!-- "Up Next" row: two kinds of card.
+     - "episode": next unwatched episode per in-progress (Watching) show,
+       with a quick "mark watched" action. The status picker's FINISHED
+       option is repurposed to mean "mark this next episode watched" (the
+       point of this row) rather than the show as a whole; every other
+       option (PLANNED/WATCHING/HOLD/DROPPED/DELETE) updates the show
+       exactly like it would from any other poster.
+     - "release": a PLANNED movie/show with a known, still-upcoming release
+       date - the "coming soon" reminder half. Status here behaves normally
+       (no repurposing), same as any other poster.
+     Uses the exact same PosterEpisodeBadge/PosterProgressBar/PosterRating/
+     PosterStatus components as Poster.svelte so both the look and the hover
+     menu are identical, not just similar. -->
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { resolve } from "$app/paths";
@@ -20,19 +23,23 @@
 	import PosterRating from "@/lib/poster/PosterRating.svelte";
 	import PosterStatus from "@/lib/poster/PosterStatus.svelte";
 	import { store } from "@/store.svelte";
-	import type { WatchedStatus } from "@/types";
+	import type { SupportedMedia, WatchedStatus } from "@/types";
 
 	interface UpNextItem {
+		kind: "episode" | "release";
 		watchedId: number;
 		tmdbId: number;
+		contentType: "movie" | "tv";
 		showTitle: string;
 		posterPath: string;
-		seasonNumber: number;
-		episodeNumber: number;
-		seasonEpisodeCount: number;
-		episodeName: string;
-		stillPath: string;
-		airDate: string;
+		seasonNumber?: number;
+		episodeNumber?: number;
+		seasonEpisodeCount?: number;
+		episodeName?: string;
+		stillPath?: string;
+		airDate?: string;
+		/** "release" kind only: the movie/show's release (or first air) date. */
+		releaseDate?: string;
 		remainingEpisodes?: number;
 		watchProgress?: number;
 		rating?: number;
@@ -138,10 +145,10 @@
 	}
 
 	function handleStatusClick(item: UpNextItem, type: WatchedStatus | "DELETE") {
-		if (type === "FINISHED") {
-			markWatched(item);
-		} else if (type === "DELETE") {
+		if (type === "DELETE") {
 			removeShow(item);
+		} else if (item.kind === "episode" && type === "FINISHED") {
+			markWatched(item);
 		} else {
 			updateShowStatus(item, type);
 		}
@@ -154,6 +161,10 @@
 
 	function episodeBadgeText(item: UpNextItem) {
 		return `S${item.seasonNumber}E${item.episodeNumber}`;
+	}
+
+	function itemLink(item: UpNextItem): `/${SupportedMedia}/${string}` {
+		return `/${item.contentType}/${item.tmdbId}`;
 	}
 
 	// German format: "DD.MM." for the current year, "DD.MM.YYYY" otherwise.
@@ -189,7 +200,7 @@
 					{:else}
 						<div class="noimg"><Icon i="reel" wh={30} /></div>
 					{/if}
-					{#if item.airDate && activeId !== item.watchedId}
+					{#if item.kind === "episode" && item.airDate && activeId !== item.watchedId}
 						{@const future = new Date(item.airDate) > new Date()}
 						<div
 							class="air-badge"
@@ -198,8 +209,12 @@
 						>
 							{future ? "📺 " : ""}{formatGermanDate(new Date(item.airDate))}
 						</div>
+					{:else if item.kind === "release" && item.releaseDate && activeId !== item.watchedId}
+						<div class="air-badge future" title="Release date">
+							🎬 {formatGermanDate(new Date(item.releaseDate))}
+						</div>
 					{/if}
-					{#if activeId !== item.watchedId}
+					{#if item.kind === "episode" && activeId !== item.watchedId}
 						<PosterEpisodeBadge
 							text={episodeBadgeText(item)}
 							remaining={item.remainingEpisodes}
@@ -213,16 +228,20 @@
 							onclick={(e) => {
 								e.preventDefault();
 								if (activeId === item.watchedId) {
-									goto(resolve(`/tv/${item.tmdbId}`));
+									goto(resolve(itemLink(item)));
 								}
 							}}
-							href={resolve(`/tv/${item.tmdbId}`)}
+							href={resolve(itemLink(item))}
 						>
 							<h2>{item.showTitle}</h2>
 							<span>
-								{episodeBadgeText(item)}{item.seasonEpisodeCount
-									? `/${item.seasonEpisodeCount}`
-									: ""}{item.episodeName ? ` · ${item.episodeName}` : ""}
+								{#if item.kind === "episode"}
+									{episodeBadgeText(item)}{item.seasonEpisodeCount
+										? `/${item.seasonEpisodeCount}`
+										: ""}{item.episodeName ? ` · ${item.episodeName}` : ""}
+								{:else if item.releaseDate}
+									Releases {formatGermanDate(new Date(item.releaseDate))}
+								{/if}
 							</span>
 						</a>
 						<div class="buttons">
@@ -232,7 +251,7 @@
 								disableInteraction={busyId === item.watchedId}
 							/>
 							<PosterStatus
-								status="WATCHING"
+								status={item.kind === "episode" ? "WATCHING" : "PLANNED"}
 								handleStatusClick={(t) => handleStatusClick(item, t)}
 								disableInteraction={busyId === item.watchedId}
 								btnTooltip="Mark next episode watched"

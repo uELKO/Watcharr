@@ -4,26 +4,45 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/watched/watchedutil"
 )
 
-// UpNextItem describes the next unwatched episode of an in-progress show,
-// for the "Up Next" row on the overview page.
+// UpNextItemKind distinguishes the two kinds of card the "Up Next" row can
+// show: the next unwatched episode of a show being WATCHING, or a PLANNED
+// movie/show with a known, still-upcoming release date.
+type UpNextItemKind string
+
+const (
+	UpNextKindEpisode UpNextItemKind = "episode"
+	UpNextKindRelease UpNextItemKind = "release"
+)
+
+// UpNextItem describes one card in the "Up Next" row on the overview page -
+// either the next unwatched episode of an in-progress show (Kind ==
+// UpNextKindEpisode), or a PLANNED movie/show that hasn't released yet
+// (Kind == UpNextKindRelease).
 type UpNextItem struct {
-	WatchedID     uint   `json:"watchedId"`
-	TmdbID        int    `json:"tmdbId"`
-	ShowTitle     string `json:"showTitle"`
-	PosterPath    string `json:"posterPath"`
-	SeasonNumber  int    `json:"seasonNumber"`
-	EpisodeNumber int    `json:"episodeNumber"`
+	Kind      UpNextItemKind `json:"kind"`
+	WatchedID uint           `json:"watchedId"`
+	TmdbID    int            `json:"tmdbId"`
+	// "movie" or "tv" - episode-kind items are always shows, but release-kind
+	// items can be either, so the client needs this to link to the right page.
+	ContentType string `json:"contentType"`
+	ShowTitle   string `json:"showTitle"`
+	PosterPath  string `json:"posterPath"`
+	SeasonNumber  int `json:"seasonNumber,omitempty"`
+	EpisodeNumber int `json:"episodeNumber,omitempty"`
 	// Total number of episodes in that season (for a "S6.E2/12" style display).
-	SeasonEpisodeCount int    `json:"seasonEpisodeCount"`
-	EpisodeName        string `json:"episodeName"`
-	StillPath          string `json:"stillPath"`
-	AirDate            string `json:"airDate"`
+	SeasonEpisodeCount int    `json:"seasonEpisodeCount,omitempty"`
+	EpisodeName        string `json:"episodeName,omitempty"`
+	StillPath          string `json:"stillPath,omitempty"`
+	AirDate            string `json:"airDate,omitempty"`
+	// Release-kind only: the movie/show's release (or first air) date.
+	ReleaseDate string `json:"releaseDate,omitempty"`
 	// Same fields as WatchedDto, so the card can use the exact same
 	// PosterEpisodeBadge/PosterProgressBar/PosterRating/PosterStatus
 	// components as the rest of the app.
@@ -64,6 +83,53 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		if item, ok := s.nextEpisodeFor(&w[i]); ok {
 			items = append(items, item)
 		}
+	}
+
+	releases, err := s.upcomingPlannedReleases(userId)
+	if err != nil {
+		slog.Warn("UpNext: upcoming planned releases query failed", "error", err)
+	} else {
+		items = append(items, releases...)
+	}
+
+	return items, nil
+}
+
+// upcomingPlannedReleases returns PLANNED movies/shows with a known release
+// date that hasn't happened yet, soonest first - the "coming soon" half of
+// Up Next, alongside the in-progress shows' next episodes above.
+func (s *Service) upcomingPlannedReleases(userId uint) ([]UpNextItem, error) {
+	var w []entity.Watched
+	res := s.db.
+		Joins("Content").
+		Where(
+			"watcheds.user_id = ? AND watcheds.status = ? AND Content.release_date IS NOT NULL AND Content.release_date > ?",
+			userId, entity.PLANNED, time.Now(),
+		).
+		Order("Content.release_date ASC").
+		Find(&w)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	items := make([]UpNextItem, 0, len(w))
+	for i := range w {
+		if w[i].Content == nil || w[i].Content.ReleaseDate == nil {
+			continue
+		}
+		contentType := "tv"
+		if w[i].Content.Type == entity.MOVIE {
+			contentType = "movie"
+		}
+		items = append(items, UpNextItem{
+			Kind:        UpNextKindRelease,
+			WatchedID:   w[i].ID,
+			TmdbID:      w[i].Content.TmdbID,
+			ContentType: contentType,
+			ShowTitle:   w[i].Content.Title,
+			PosterPath:  w[i].Content.PosterPath,
+			ReleaseDate: w[i].Content.ReleaseDate.Format("2006-01-02"),
+			Rating:      w[i].Rating,
+		})
 	}
 	return items, nil
 }
@@ -120,10 +186,12 @@ func (s *Service) nextEpisodeFor(w *entity.Watched) (UpNextItem, bool) {
 				remainingAfterThis = 0
 			}
 			return UpNextItem{
-				WatchedID:          w.ID,
-				TmdbID:             w.Content.TmdbID,
-				ShowTitle:          w.Content.Title,
-				PosterPath:         w.Content.PosterPath,
+				Kind:                UpNextKindEpisode,
+				WatchedID:           w.ID,
+				TmdbID:              w.Content.TmdbID,
+				ContentType:         "tv",
+				ShowTitle:           w.Content.Title,
+				PosterPath:          w.Content.PosterPath,
 				SeasonNumber:       ep.SeasonNumber,
 				EpisodeNumber:      ep.EpisodeNumber,
 				SeasonEpisodeCount: len(eps),
