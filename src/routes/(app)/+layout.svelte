@@ -39,7 +39,6 @@
 	let followingMenuShown = $state(false);
 	let detailedMenuShown = $state(false);
 	let tagMenuShown = $state(false);
-	let scroll = window.scrollY;
 
 	function handleProfileClick() {
 		if (!localStorage.getItem("token")) {
@@ -173,18 +172,6 @@
 		}
 	}
 
-	function docOnScroll() {
-		if (scroll > window.scrollY) {
-			navEl?.classList.remove("scrolled-down");
-			document.body.classList.add("nav-shown");
-		} else {
-			navEl?.classList.add("scrolled-down");
-			document.body.classList.remove("nav-shown");
-			closeAllSubMenus();
-		}
-		scroll = window.scrollY;
-	}
-
 	function focusSearch() {
 		try {
 			if (!mainSearchEl) {
@@ -221,12 +208,13 @@
 		if (navEl) {
 			decideOnNavSplit();
 			window.addEventListener("resize", decideOnNavSplit);
-			window.document.addEventListener("scroll", docOnScroll);
 			window.document.addEventListener("keydown", handleGlobalKeybind);
+			// Nav stays fixed/visible at all times now (no hide-on-scroll-down),
+			// but SeasonsList's sticky positioning still keys off this class.
+			document.body.classList.add("nav-shown");
 
 			return () => {
 				window.removeEventListener("resize", decideOnNavSplit);
-				window.document.removeEventListener("scroll", docOnScroll);
 				window.document.removeEventListener("keydown", handleGlobalKeybind);
 			};
 		} else {
@@ -411,12 +399,7 @@
 		top: 0;
 		gap: 3px;
 		z-index: 99990;
-		transition: top 200ms ease-in-out;
 		@include nav-blur;
-
-		&:global(.scrolled-down) {
-			top: -110px;
-		}
 
 		.wrapper {
 			display: flex;
