@@ -33,9 +33,8 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       directly, predating the `req` wrapper migration. New `GET /watched/upnext`, new
       `UpNext.svelte` at the top of the homepage, reusing PosterEpisodeBadge/
       PosterProgressBar/PosterRating/PosterStatus verbatim so it's pixel- and behavior-
-      identical to posters elsewhere. Not done: the "upcoming calendar" half of #1008
-      (movies/episodes not yet released) — the PR's own notes flagged that as depending
-      on a periodic refresh mechanism (#1048/#1049), separate scope from this row.
+      identical to posters elsewhere. The "upcoming calendar" half (PLANNED movies/shows
+      with a known future release date) was later added too — see below.
 
 - [x] **Poster hover: TMDB community rating pill** (not from an upstream issue — asked
       as "IMDb rating on hover", scoped down to the TMDB score we already have instead
@@ -141,6 +140,22 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       icon-only Discover nav button with explicit "Home"/"Discover" text
       links next to the logo (muted when inactive, highlighted for the
       current page), matching JustWatch's own top nav.
+
+- [x] **Poster hover zoom reduced further (25% of previous growth)** (not
+      from an upstream issue). `scale(1.2)`/`scale(1.1)` → `scale(1.05)`/
+      `scale(1.025)`.
+
+- [x] **Up Next: "upcoming calendar" half of #1008** — PLANNED movies/shows
+      with a known future release date. Completes the deferred half of #1008
+      above. New `UpNextItemKind` ("episode" | "release") in one response;
+      release cards skip the episode badge/progress bar for a release-date
+      badge instead, link to `/movie` or `/tv` based on content type, and
+      don't repurpose the status picker (that only makes sense for episode
+      cards) — status just updates normally.
+
+- [x] **Nav: keep the nav bar fixed instead of hiding on scroll down** (not
+      from an upstream issue). Removed the scroll listener that slid it out
+      of view; it's just sticky at `top:0` now.
 
 ## Larger builds
 
