@@ -136,7 +136,19 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       shown below (1200 in list view to match `PosterList`'s own cap, 1800 in
       grouped view) so it doesn't overhang past the content.
 
+- [x] **Nav: JustWatch-style Home/Discover text links** (not from an upstream
+      issue). With the app effectively down to two destinations, replaced the
+      icon-only Discover nav button with explicit "Home"/"Discover" text
+      links next to the logo (muted when inactive, highlighted for the
+      current page), matching JustWatch's own top nav.
+
 ## Larger builds
+
+- [ ] **Trending/Charts page per streaming provider** (not from an upstream
+      issue, our own idea). Own page showing a trending/charts list scoped to
+      whichever streaming provider(s) are selected — likely builds on the
+      existing `WithWatchProviders`/`watch_region` Discover plumbing, but as
+      a dedicated chart view rather than a Discover filter.
 
 - [ ] **#409** — Notifications for upcoming releases
       https://github.com/sbondCo/Watcharr/issues/409
