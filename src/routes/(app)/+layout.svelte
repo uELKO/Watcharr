@@ -244,6 +244,17 @@
 				<span class="large">Watcharr</span>
 				<span class="small">W</span>
 			</a>
+			<div class="page-links">
+				<a href={resolve("/")} class:active={page.url?.pathname === "/"}>
+					Home
+				</a>
+				<a
+					href={resolve("/discover")}
+					class:active={page.url?.pathname?.startsWith("/discover")}
+				>
+					Discover
+				</a>
+			</div>
 		</div>
 		<div class="search">
 			<input
@@ -342,13 +353,6 @@
 					/>
 				{/if}
 			{/if}
-			<button
-				class="plain other discover"
-				onclick={() => goto(resolve("/discover"))}
-				use:tooltip={{ text: "Discover", pos: "bot" }}
-			>
-				<Icon i="compass" wh={26} />
-			</button>
 			{#if !store.userSettings?.hideFollowing}
 				<button
 					class="plain other following"
@@ -454,6 +458,44 @@
 		}
 
 		.left-side {
+			display: flex;
+			align-items: center;
+			gap: 24px;
+
+			.page-links {
+				display: flex;
+				align-items: center;
+				gap: 18px;
+
+				a {
+					font-family:
+						sans-serif,
+						system-ui,
+						-apple-system,
+						BlinkMacSystemFont;
+					font-size: 15px;
+					font-weight: 600;
+					color: $text-color-accent;
+					-webkit-text-stroke: 0;
+					transition: color 150ms ease;
+
+					&:hover,
+					&:focus-visible {
+						color: $text-color;
+						-webkit-text-stroke: 0;
+						font-weight: 600;
+					}
+
+					&.active {
+						color: $text-color;
+					}
+				}
+
+				@media screen and (max-width: 745px) {
+					display: none;
+				}
+			}
+
 			a {
 				display: inline-flex;
 				text-decoration: none;
