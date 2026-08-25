@@ -360,10 +360,8 @@
 	}
 
 	li.active .container {
-		// Matches Poster's `.small` variant (1.3 is Poster's default/non-small
-		// scale) - this card sits in the same compact row as the Watching
-		// section's small posters, so it should grow the same amount.
-		transform: scale(1.1);
+		// Matches Poster's `.small` variant scale.
+		transform: scale(1.025);
 		z-index: 99;
 
 		img {

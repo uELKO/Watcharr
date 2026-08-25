@@ -603,13 +603,14 @@
 		}
 
 		.active & {
-			// Was 1.3 - roughly a third less growth (30% -> 20%).
-			transform: scale(1.2);
+			// Was 1.3, then 1.2 (30% -> 20% growth) - now reduced to 25% of
+			// that growth (20% -> 5%).
+			transform: scale(1.05);
 			z-index: 99;
 		}
 
 		.active &.small {
-			transform: scale(1.1);
+			transform: scale(1.025);
 		}
 
 		.active &,
