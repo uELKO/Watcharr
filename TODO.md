@@ -157,13 +157,28 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       from an upstream issue). Removed the scroll listener that slid it out
       of view; it's just sticky at `top:0` now.
 
+- [x] **Style: subtle blue tint on the dark theme background** (not from an
+      upstream issue). `rgb(15,15,15)` → `rgb(11,13,20)`, light theme untouched.
+
+- [x] **Discover: fix filter persistence lost on navigate-away** (not from an
+      upstream issue). Two bugs: filters started at hardcoded defaults on
+      mount and were only restored later inside `onMount`, so the persist
+      effect could fire in between and overwrite the saved filters with
+      those defaults; and `onDestroy` just cancelled the debounce timeout
+      instead of flushing it, so a filter change followed quickly by
+      navigating into a movie/show never got saved at all. Both fixed
+      (restore synchronously at `$state` declaration time; flush pending
+      changes on teardown). Same flush fix applied to the Charts page's
+      provider-selection persistence, which had the identical pattern.
+
 ## Larger builds
 
-- [ ] **Trending/Charts page per streaming provider** (not from an upstream
-      issue, our own idea). Own page showing a trending/charts list scoped to
-      whichever streaming provider(s) are selected — likely builds on the
-      existing `WithWatchProviders`/`watch_region` Discover plumbing, but as
-      a dedicated chart view rather than a Discover filter.
+- [x] **Charts page: Top 10 per streaming provider** (not from an upstream
+      issue, our own idea). New `/charts` page — pick providers, see a ranked
+      Top 10 (movies+shows merged by TMDB popularity) per provider, with a
+      rank-movement indicator (▲/▼ vs ~7 days ago) built from a new daily
+      snapshot table + recurring task, since TMDB has no native
+      trending-by-provider-over-time endpoint.
 
 - [ ] **#409** — Notifications for upcoming releases
       https://github.com/sbondCo/Watcharr/issues/409
