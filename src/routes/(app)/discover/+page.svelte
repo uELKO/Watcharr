@@ -52,12 +52,47 @@
 		{ id: 5, value: "5+" },
 	];
 
-	let discoverFilter: DiscoverFilter = $state(DiscoverFilter.trending);
-	let hideWatchedFilter = $state(false);
-	let selectedGenres: number[] = $state([]);
-	let selectedProviders: number[] = $state([]);
-	let selectedYear: string | number = $state(0);
-	let selectedMinRating: string | number = $state(0);
+	// Persisted (per-user, server-side) filter state, so the filter bar
+	// survives a refresh instead of resetting every time. Stored as an
+	// opaque JSON blob on the user's settings - the backend doesn't need to
+	// understand its shape, only the frontend encodes/decodes it.
+	interface DiscoverFilterState {
+		type?: SearchType;
+		filter?: DiscoverFilter;
+		hideWatched?: boolean;
+		genres?: number[];
+		providers?: number[];
+		year?: number;
+		minRating?: number;
+	}
+
+	function loadSavedFilters(): DiscoverFilterState | undefined {
+		const raw = store.userSettings?.discoverFilters;
+		if (!raw) return undefined;
+		try {
+			return JSON.parse(raw) as DiscoverFilterState;
+		} catch (err) {
+			console.error("discover: Failed to parse saved filters", err);
+			return undefined;
+		}
+	}
+
+	// store.userSettings is guaranteed populated before this page can mount
+	// (the root layout awaits it before rendering routes), so this restores
+	// synchronously rather than via onMount - avoids a first-render window
+	// where these are still at their defaults and the persist effect below
+	// would fire with (and save) the wrong values before onMount got a
+	// chance to restore them.
+	const initialSavedFilters = loadSavedFilters();
+
+	let discoverFilter: DiscoverFilter = $state(
+		initialSavedFilters?.filter ?? DiscoverFilter.trending,
+	);
+	let hideWatchedFilter = $state(initialSavedFilters?.hideWatched ?? false);
+	let selectedGenres: number[] = $state(initialSavedFilters?.genres ?? []);
+	let selectedProviders: number[] = $state(initialSavedFilters?.providers ?? []);
+	let selectedYear: string | number = $state(initialSavedFilters?.year ?? 0);
+	let selectedMinRating: string | number = $state(initialSavedFilters?.minRating ?? 0);
 	let discoverType: SearchType | undefined = $derived.by(() => {
 		const t = page.url.searchParams.get("type");
 		if (t) {
@@ -84,43 +119,36 @@
 				? "Not available for Trending (TMDB doesn't expose providers on trending results)."
 				: "",
 	);
-	// Persisted (per-user, server-side) filter state, so the filter bar
-	// survives a refresh instead of resetting every time. Stored as an
-	// opaque JSON blob on the user's settings - the backend doesn't need to
-	// understand its shape, only the frontend encodes/decodes it.
-	interface DiscoverFilterState {
-		type?: SearchType;
-		filter?: DiscoverFilter;
-		hideWatched?: boolean;
-		genres?: number[];
-		providers?: number[];
-		year?: number;
-		minRating?: number;
-	}
-
-	function loadSavedFilters(): DiscoverFilterState | undefined {
-		const raw = store.userSettings?.discoverFilters;
-		if (!raw) return undefined;
-		try {
-			return JSON.parse(raw) as DiscoverFilterState;
-		} catch (err) {
-			console.error("discover: Failed to parse saved filters", err);
-			return undefined;
-		}
-	}
-
 	let lastPersistedFilters = store.userSettings?.discoverFilters || "";
 	let persistFiltersTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Tracks a change that's debounced but hasn't actually been sent/saved
+	// yet, so it can be flushed immediately if the page is torn down
+	// (navigating away) before the debounce fires - otherwise a filter
+	// change made just before clicking into a movie gets silently dropped
+	// (never reaches store.userSettings or the server), so going back
+	// restores the filters from before that last change instead.
+	let pendingPersistJson: string | undefined;
+
+	function sendPersist(json: string) {
+		pendingPersistJson = undefined;
+		lastPersistedFilters = json;
+		if (store.userSettings) store.userSettings.discoverFilters = json;
+		req.post("/user/update", { discoverFilters: json }).catch((err) => {
+			console.error("discover: Failed to persist filters", err);
+		});
+	}
 
 	function persistFilters(json: string) {
+		pendingPersistJson = json;
 		clearTimeout(persistFiltersTimeout);
-		persistFiltersTimeout = setTimeout(() => {
-			lastPersistedFilters = json;
-			if (store.userSettings) store.userSettings.discoverFilters = json;
-			req.post("/user/update", { discoverFilters: json }).catch((err) => {
-				console.error("discover: Failed to persist filters", err);
-			});
-		}, 600);
+		persistFiltersTimeout = setTimeout(() => sendPersist(json), 600);
+	}
+
+	function flushPersistFilters() {
+		clearTimeout(persistFiltersTimeout);
+		if (pendingPersistJson !== undefined) {
+			sendPersist(pendingPersistJson);
+		}
 	}
 
 	let nextLoadParams: DiscoverRequest = $derived({
@@ -177,7 +205,14 @@
 		goto(resolve(`/discover?${curLocation.searchParams.toString()}`));
 	}
 
+	// Guards the persist effect below until discoverType (URL-derived) has
+	// settled on its restored value - otherwise the effect's first run(s)
+	// would see the still-default/pre-sync type, decide it differs from
+	// what's saved, and schedule an overwrite with the wrong type.
+	let filtersReady = $state(false);
+
 	$effect(() => {
+		if (!filtersReady) return;
 		const snapshot: DiscoverFilterState = {
 			type: discoverType,
 			filter: discoverFilter,
@@ -193,15 +228,7 @@
 	});
 
 	onMount(() => {
-		const saved = loadSavedFilters();
-		if (saved) {
-			discoverFilter = saved.filter ?? discoverFilter;
-			hideWatchedFilter = saved.hideWatched ?? false;
-			selectedGenres = saved.genres ?? [];
-			selectedProviders = saved.providers ?? [];
-			selectedYear = saved.year ?? 0;
-			selectedMinRating = saved.minRating ?? 0;
-		}
+		const saved = initialSavedFilters;
 		// discoverType is derived from the URL - only apply the saved type
 		// when the URL doesn't already specify one (a shared/bookmarked link
 		// should win), and do it via a replaced navigation so it doesn't
@@ -211,8 +238,11 @@
 			curLocation.searchParams.set("type", saved.type);
 			goto(resolve(`/discover?${curLocation.searchParams.toString()}`), {
 				replaceState: true,
+			}).then(() => {
+				filtersReady = true;
 			});
 		} else {
+			filtersReady = true;
 			dataLoader.runFn(PaginatedLoaderRunFnAction.Reset);
 		}
 	});
@@ -229,7 +259,7 @@
 
 	onDestroy(() => {
 		console.debug("DISCOVER PAGE DESTROYED");
-		clearTimeout(persistFiltersTimeout);
+		flushPersistFilters();
 		scroll.destroy();
 		dataLoader.abortReq("page destroyed");
 	});
