@@ -74,6 +74,9 @@ type UserSettings struct {
 	// frontend encodes/decodes itself - restored on page load so filters
 	// survive a refresh (frontend only).
 	DiscoverFilters *string `gorm:"default:''" json:"discoverFilters"`
+	// Last-selected Charts page streaming providers, pipe separated TMDB
+	// provider ids (eg "8|9|337") - restored on page load (frontend only).
+	ChartsProviders *string `gorm:"default:''" json:"chartsProviders"`
 }
 
 // Public user details for search results

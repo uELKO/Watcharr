@@ -10,15 +10,22 @@
 		 * and leaving it scrolled to a clipped middle instead of the start.
 		 */
 		center?: boolean;
+		/** Small icon shown to the left of the title (eg a streaming provider's logo). */
+		iconUrl?: string;
 		children?: import("svelte").Snippet;
 	}
 
-	let { title, center = false, children }: Props = $props();
+	let { title, center = false, iconUrl, children }: Props = $props();
 </script>
 
 <div>
 	{#if title}
-		<h2>{title}</h2>
+		<h2>
+			{#if iconUrl}
+				<img src={iconUrl} alt="" />
+			{/if}
+			{title}
+		</h2>
 	{/if}
 	<ul class:center>
 		{@render children?.()}
@@ -32,11 +39,20 @@
 	}
 
 	h2 {
+		display: flex;
+		align-items: center;
+		gap: 10px;
 		font-size: 30px;
 		font-weight: bold;
 		margin-left: 30px;
 		position: sticky;
 		left: 0;
+
+		img {
+			width: 30px;
+			height: 30px;
+			border-radius: 6px;
+		}
 	}
 
 	ul {

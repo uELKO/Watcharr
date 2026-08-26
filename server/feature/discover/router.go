@@ -3,6 +3,7 @@ package discover
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
@@ -38,6 +39,8 @@ func (r *Router) AddRoutes() {
 
 	// Master discovery
 	discover.GET("", router.WhereaboutsRequired(r.br.Cfg), router.PaginatedRequest(true), r.GetDiscover)
+	// Per-provider Top 10 charts (movies+shows merged, ranked by popularity)
+	discover.GET("/charts", router.WhereaboutsRequired(r.br.Cfg), r.GetCharts)
 }
 
 // NOTE: The handler functions use `copier` to copy values from the response
@@ -98,4 +101,37 @@ func (r *Router) GetDiscover(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ww)
+}
+
+func (r *Router) GetCharts(c *gin.Context) {
+	userId := c.MustGet("userId").(uint)
+	providersQ := c.Query("providers")
+	if providersQ == "" {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "providers query param required"})
+		return
+	}
+	charts, err := r.service.Charts(strings.Split(providersQ, "|"), c.MustGet("userCountry").(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+		return
+	}
+	for i := range charts {
+		items := charts[i].Items
+		if err := addedtocontent.AddList(
+			r.watchedProvider,
+			userId,
+			items,
+			func(j int, w *entity.Watched) {
+				items[j].Watched = domain.NewWatchedDtoForLists(w)
+			},
+		); err != nil {
+			slog.Error("GetCharts: Failed to add watched to content!", "error", err)
+			c.JSON(
+				http.StatusInternalServerError,
+				router.ErrorResponse{Error: "failed to add watched data to response"},
+			)
+			return
+		}
+	}
+	c.JSON(http.StatusOK, charts)
 }

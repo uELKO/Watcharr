@@ -18,6 +18,7 @@
 	import PosterStatus from "./PosterStatus.svelte";
 	import PosterRating from "./PosterRating.svelte";
 	import PosterStatusBadge from "./PosterStatusBadge.svelte";
+	import PosterRankBadge from "./PosterRankBadge.svelte";
 	import PosterEpisodeBadge from "./PosterEpisodeBadge.svelte";
 	import PosterProgressBar from "./PosterProgressBar.svelte";
 	import PosterCommunityRating from "./PosterCommunityRating.svelte";
@@ -65,6 +66,13 @@
 		 * current/last-watched episode (eg the homepage's "Watching" section).
 		 */
 		showEpisodeBadge?: boolean;
+		/**
+		 * Shows a small always-visible chart-position badge in the corner
+		 * (eg the Charts page's Top 10 rows).
+		 */
+		rank?: number;
+		/** Rank movement vs ~7 days ago, alongside `rank`. */
+		rankMovement?: "up" | "down" | "same" | "";
 		// When provided, default click handlers will instead run this callback.
 		onClick?: (() => void) | undefined;
 		/**
@@ -88,6 +96,8 @@
 		hideIfWatched = false,
 		showStatusBadge = false,
 		showEpisodeBadge = false,
+		rank = undefined,
+		rankMovement = "",
 		onClick = undefined,
 		onUpdated = undefined,
 	}: Props = $props();
@@ -384,6 +394,9 @@
 		{/if}
 		{#if showStatusBadge && watched?.status && !posterActive}
 			<PosterStatusBadge status={watched.status} />
+		{/if}
+		{#if rank && !posterActive}
+			<PosterRankBadge {rank} movement={rankMovement} />
 		{/if}
 		{#if showEpisodeBadge && watched?.watchingSeason && !posterActive}
 			<PosterEpisodeBadge

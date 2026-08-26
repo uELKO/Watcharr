@@ -65,6 +65,9 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 	if ur.HideFollowing != nil {
 		user.HideFollowing = ur.HideFollowing
 	}
+	if ur.ChartsProviders != nil {
+		user.ChartsProviders = ur.ChartsProviders
+	}
 	s.db.Save(&user)
 	return entity.UserSettings{
 		Private:                  user.Private,
@@ -77,6 +80,7 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 		HideTags:                 user.HideTags,
 		DiscoverFilters:          user.DiscoverFilters,
 		HideFollowing:            user.HideFollowing,
+		ChartsProviders:          user.ChartsProviders,
 	}, nil
 }
 
@@ -101,6 +105,7 @@ func (s *Service) UserGetSettings(userId uint) (entity.UserSettings, error) {
 		HideTags:                 user.HideTags,
 		DiscoverFilters:          user.DiscoverFilters,
 		HideFollowing:            user.HideFollowing,
+		ChartsProviders:          user.ChartsProviders,
 	}, nil
 }
 

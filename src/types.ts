@@ -255,6 +255,8 @@ export interface UserSettings {
 	discoverFilters?: string;
 	/** Hide the "Following" nav menu button. */
 	hideFollowing?: boolean;
+	/** Last-selected Charts page streaming providers, pipe separated TMDB provider ids. */
+	chartsProviders?: string;
 }
 
 export enum RatingSystem {
@@ -459,6 +461,18 @@ export interface DiscoverRequest extends PaginationParams {
 	year?: number;
 	/** Minimum average rating (0-10). */
 	minRating?: number;
+}
+
+/** One entry of a provider's Top 10 chart. */
+export interface ChartItem extends Media {
+	/** Rank movement vs ~7 days ago: "up" | "down" | "same" | "" (no history yet). */
+	movement?: "up" | "down" | "same" | "";
+}
+
+/** A Top 10 chart (movies+shows merged, ranked by popularity) for one streaming provider. */
+export interface ProviderChart {
+	providerId: number;
+	items: ChartItem[];
 }
 
 export interface PersonDetailsResponse {

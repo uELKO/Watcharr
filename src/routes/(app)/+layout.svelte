@@ -242,6 +242,12 @@
 				>
 					Discover
 				</a>
+				<a
+					href={resolve("/charts")}
+					class:active={page.url?.pathname?.startsWith("/charts")}
+				>
+					Charts
+				</a>
 			</div>
 		</div>
 		<div class="search">
