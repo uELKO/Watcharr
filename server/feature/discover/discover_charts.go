@@ -102,14 +102,19 @@ func (s *Service) chartForProvider(providerShortName string, region string) ([]C
 // JustWatch's own image CDN.
 func (s *Service) mediaForTmdbId(tmdbId int, objectType string, region string) (domain.Media, error) {
 	id := strconv.Itoa(tmdbId)
+	// append_to_response is needed so TMDB actually includes watch/providers -
+	// without it, transformProviders logs an assertion error every time
+	// (harmless, but noisy) since the field is simply absent rather than
+	// present-but-empty.
+	params := map[string]string{"append_to_response": "watch/providers"}
 	if objectType == "SHOW" {
-		d, err := s.tmdb.ShowDetails(tmdb.ShowDetailsOptions{ID: id, Country: region})
+		d, err := s.tmdb.ShowDetails(tmdb.ShowDetailsOptions{ID: id, Country: region, Params: params})
 		if err != nil {
 			return domain.Media{}, err
 		}
 		return d.AsMedia(), nil
 	}
-	d, err := s.tmdb.MovieDetails(tmdb.MovieDetailsOptions{ID: id, Country: region})
+	d, err := s.tmdb.MovieDetails(tmdb.MovieDetailsOptions{ID: id, Country: region, Params: params})
 	if err != nil {
 		return domain.Media{}, err
 	}

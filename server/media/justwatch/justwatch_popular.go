@@ -80,7 +80,7 @@ type PopularEntry struct {
 func (j *JustWatch) Popular(country string, packageShortName string, count int) ([]PopularEntry, error) {
 	cacheKey := cache.CreateCacheKey("JustWatchPopular", country, packageShortName, count)
 	cached := new([]PopularEntry)
-	if cache.GetCache(ContentStore, cacheKey, cached) {
+	if cache.GetCache(ContentStore, cacheKey, &cached) {
 		return *cached, nil
 	}
 	var resp struct {

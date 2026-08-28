@@ -30,7 +30,7 @@ type Package struct {
 func (j *JustWatch) Providers(country string) ([]Package, error) {
 	cacheKey := cache.CreateCacheKey("JustWatchProviders", country)
 	cached := new([]Package)
-	if cache.GetCache(ContentStore, cacheKey, cached) {
+	if cache.GetCache(ContentStore, cacheKey, &cached) {
 		return *cached, nil
 	}
 	var resp struct {
