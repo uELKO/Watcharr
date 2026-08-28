@@ -4,7 +4,8 @@ Tracking custom features for this fork. Upstream: https://github.com/sbondCo/Wat
 (`upstream` remote). Work happens on `custom-dev`, rebased periodically on `dev`
 (kept in sync with `upstream/dev`).
 
-Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
+Excluded on purpose: #1012 (custom lists) — not planned for now. (Its IMDb-rating
+half is covered separately — see JustWatch scoring below.)
 
 ## Quick wins
 
@@ -186,6 +187,14 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
       provider IDs); each entry's `tmdb_id` is used to pull full TMDB
       details so cards look like every other poster in the app. Snapshot
       table + task removed as no longer needed.
+
+- [x] **Content pages: IMDb + Rotten Tomatoes scores** (not from an upstream
+      issue — the scoped-down half of the original "IMDb rating" ask, now
+      essentially free with JustWatch integration already in place for
+      Charts). JustWatch has no lookup-by-TMDB-id query, so this searches by
+      title and matches whichever result's own `tmdb_id` equals ours -
+      best-effort, silently skipped if no match. New `Search` alongside
+      `Popular`/`Providers` in `server/media/justwatch`; all three cached.
 
 - [x] **Discover: genre exclude filter** (not from an upstream issue).
       Genre filter cycles three states per click, JustWatch-style: neutral →
