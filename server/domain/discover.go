@@ -29,11 +29,15 @@ type DiscoverRequest struct {
 	// Not every `Type` of discover will support all Filters (service funcs
 	// will error individually based on what they support).
 	Filter DiscoverFilter `form:"filter" binding:"validdiscoverfilter"`
-	// Optional: comma separated TMDB genre ids to filter by. Only applies to
-	// filters backed by /discover/{movie,tv} (Popular/Upcoming/In Theatres);
-	// TMDB's /trending endpoint doesn't support genre filtering, so this is
-	// ignored for DiscoverFilterTrending.
+	// Optional: pipe separated TMDB genre ids to filter by. Supported for
+	// DiscoverFilterTrending too, via a server-side post-filter (TMDB's
+	// /trending endpoint has no genre param of its own, but trending
+	// results do include genre_ids).
 	Genres string `form:"genres"`
+	// Optional: pipe separated TMDB genre ids to exclude. Supported for
+	// DiscoverFilterTrending too, via the same server-side post-filter
+	// Genres uses (trending results include genre_ids).
+	ExcludeGenres string `form:"excludeGenres"`
 	// Optional: pipe separated TMDB watch provider ids to filter by. Same
 	// scope restriction as Genres, but unlike genres there's no per-item
 	// provider data on trending results to filter with client-side either,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from "svelte";
+	import { onDestroy, onMount } from "svelte";
 	import { req } from "@/lib/util/api";
 	import Poster from "@/lib/poster/Poster.svelte";
 	import HorizontalList from "@/lib/HorizontalList.svelte";
@@ -7,22 +7,13 @@
 	import FilterPopover from "@/lib/generic/FilterPopover.svelte";
 	import Spinner from "@/lib/Spinner.svelte";
 	import Error from "@/lib/Error.svelte";
-	import ProviderFilter from "../discover/ProviderFilter.svelte";
-	import { SearchType, type ProviderChart } from "@/types";
+	import ChartsProviderFilter from "./ChartsProviderFilter.svelte";
+	import { type JustWatchProvider, type ProviderChart } from "@/types";
 	import { store } from "@/store.svelte";
 
-	interface Provider {
-		providerId: number;
-		providerName: string;
-		logoPath: string;
-	}
-
-	function parseProviders(raw: string | undefined): number[] {
+	function parseProviders(raw: string | undefined): string[] {
 		if (!raw) return [];
-		return raw
-			.split("|")
-			.map((id) => Number(id))
-			.filter((id) => !Number.isNaN(id));
+		return raw.split("|").filter((s) => s.length > 0);
 	}
 
 	// store.userSettings is guaranteed populated before this page can mount
@@ -30,26 +21,20 @@
 	// restore synchronously rather than via onMount - avoids a first-render
 	// window where selectedProviders is empty and would overwrite the saved
 	// value the moment the persist effect runs.
-	let selectedProviders: number[] = $state(
+	let selectedProviders: string[] = $state(
 		parseProviders(store.userSettings?.chartsProviders),
 	);
-	let providers: Provider[] = $state([]);
+	let providers: JustWatchProvider[] = $state([]);
 	let charts: ProviderChart[] = $state([]);
 	let loading = $state(false);
 	let loadError: unknown = $state();
 
 	async function loadProviders() {
-		providers = await req.get<Provider[]>(`/content/watch-providers`, {
-			params: { type: "movie" },
-		});
+		providers = await req.get<JustWatchProvider[]>(`/discover/charts/providers`);
 	}
 
-	function providerFor(id: number) {
-		return providers.find((p) => p.providerId === id);
-	}
-
-	function logoUrl(logoPath: string) {
-		return `https://image.tmdb.org/t/p/w45${logoPath}`;
+	function providerFor(shortName: string) {
+		return providers.find((p) => p.shortName === shortName);
 	}
 
 	async function loadCharts() {
@@ -66,8 +51,8 @@
 			// Keep chart order matching the order providers were selected in.
 			charts.sort(
 				(a, b) =>
-					selectedProviders.indexOf(a.providerId) -
-					selectedProviders.indexOf(b.providerId),
+					selectedProviders.indexOf(a.provider) -
+					selectedProviders.indexOf(b.provider),
 			);
 		} catch (err) {
 			loadError = err;
@@ -107,6 +92,14 @@
 		}
 	});
 
+	// Provider names/logos (for the chart section headers) are needed
+	// immediately on load, not just once the Streaming popover is opened -
+	// it used to only fetch lazily inside that popover's {#await}, so a
+	// fresh page load showed "Top 10" with no name until you clicked it.
+	onMount(() => {
+		loadProviders();
+	});
+
 	$effect(() => {
 		const joined = selectedProviders.join("|");
 		if (joined !== lastPersistedProviders) {
@@ -125,13 +118,7 @@
 		<PageTitle title="Charts">
 			<div class="pagetitle-filters">
 				<FilterPopover label="Streaming" active={selectedProviders.length > 0}>
-					{#await loadProviders() then}
-						<ProviderFilter
-							discoverType={SearchType.movie}
-							bind:active={selectedProviders}
-							onChange={() => {}}
-						/>
-					{/await}
+					<ChartsProviderFilter bind:active={selectedProviders} onChange={() => {}} />
 				</FilterPopover>
 			</div>
 		</PageTitle>
@@ -150,20 +137,20 @@
 				onRetry={loadCharts}
 			/>
 		{:else}
-			{#each selectedProviders as providerId (providerId)}
-				{@const chart = charts.find((c) => c.providerId === providerId)}
-				{@const provider = providerFor(providerId)}
+			{#each selectedProviders as providerShortName (providerShortName)}
+				{@const chart = charts.find((c) => c.provider === providerShortName)}
+				{@const provider = providerFor(providerShortName)}
 				{#if chart && chart.items.length > 0}
 					<HorizontalList
-						title={provider?.providerName ?? "Top 10"}
-						iconUrl={provider?.logoPath ? logoUrl(provider.logoPath) : undefined}
+						title={provider?.clearName ?? "Top 10"}
+						iconUrl={provider?.icon}
 					>
 						{#each chart.items as item, i (`${i}-${item.type}-${item.ids.tmdb}`)}
 							<Poster
 								media={item}
 								bind:watched={chart.items[i].watched}
 								small
-								rank={i + 1}
+								rank={item.rank}
 								rankMovement={item.movement}
 							/>
 						{/each}

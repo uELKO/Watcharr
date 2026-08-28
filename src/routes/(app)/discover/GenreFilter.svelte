@@ -6,19 +6,30 @@
      own disabled state. Works for every filter mode including Trending: the
      server filters trending results itself using the genre_ids TMDB already
      includes on them, since /trending has no genre query param like
-     /discover does. -->
+     /discover does.
+
+     Each genre cycles through three states on click, JustWatch-style:
+     neutral -> include (green check) -> exclude (red cross) -> neutral. -->
 <script lang="ts">
 	import { req } from "@/lib/util/api";
 	import { SearchType } from "@/types";
+	import Icon from "@/lib/Icon.svelte";
 
 	interface Props {
 		discoverType: SearchType | undefined;
-		/** Selected TMDB genre ids. */
+		/** Included TMDB genre ids. */
 		active?: number[];
+		/** Excluded TMDB genre ids. */
+		excluded?: number[];
 		onChange: () => void;
 	}
 
-	let { discoverType, active = $bindable([]), onChange }: Props = $props();
+	let {
+		discoverType,
+		active = $bindable([]),
+		excluded = $bindable([]),
+		onChange,
+	}: Props = $props();
 
 	let wrongType = $derived(
 		discoverType !== SearchType.movie && discoverType !== SearchType.show,
@@ -47,19 +58,37 @@
 		// component remounts every time its FilterPopover panel closes and
 		// reopens, which would otherwise wipe the selection on every toggle
 		// even when discoverType never changed).
+		const known = new Set(genres.map((g) => g.id));
+		let changed = false;
 		if (active.length > 0) {
-			const known = new Set(genres.map((g) => g.id));
 			const stillValid = active.filter((id) => known.has(id));
 			if (stillValid.length !== active.length) {
 				active = stillValid;
-				onChange();
+				changed = true;
 			}
 		}
+		if (excluded.length > 0) {
+			const stillValid = excluded.filter((id) => known.has(id));
+			if (stillValid.length !== excluded.length) {
+				excluded = stillValid;
+				changed = true;
+			}
+		}
+		if (changed) onChange();
 	}
 
-	function toggle(id: number) {
+	function stateFor(id: number): "include" | "exclude" | "none" {
+		if (active.includes(id)) return "include";
+		if (excluded.includes(id)) return "exclude";
+		return "none";
+	}
+
+	function cycle(id: number) {
 		if (active.includes(id)) {
 			active = active.filter((g) => g !== id);
+			excluded = [...excluded, id];
+		} else if (excluded.includes(id)) {
+			excluded = excluded.filter((g) => g !== id);
 		} else {
 			active = [...active, id];
 		}
@@ -74,12 +103,13 @@
 </script>
 
 <div class="genre-filter">
-	{#if active.length > 0}
+	{#if active.length > 0 || excluded.length > 0}
 		<button
 			type="button"
 			class="plain reset"
 			onclick={() => {
 				active = [];
+				excluded = [];
 				onChange();
 			}}
 		>
@@ -89,15 +119,22 @@
 	{#if genres.length > 0}
 		<ul>
 			{#each genres as g (g.id)}
+				{@const state = stateFor(g.id)}
 				<li>
-					<label>
-						<input
-							type="checkbox"
-							checked={active.includes(g.id)}
-							onchange={() => toggle(g.id)}
-						/>
+					<button
+						type="button"
+						class="plain genre-row {state}"
+						onclick={() => cycle(g.id)}
+					>
+						<span class="indicator">
+							{#if state === "include"}
+								<Icon i="check" wh={12} />
+							{:else if state === "exclude"}
+								<Icon i="close" wh={12} />
+							{/if}
+						</span>
 						{g.name}
-					</label>
+					</button>
 				</li>
 			{/each}
 		</ul>
@@ -129,31 +166,43 @@
 			margin: 0;
 			padding: 2px;
 
-			label {
+			.genre-row {
 				display: flex;
 				align-items: center;
 				gap: 8px;
+				width: 100%;
 				padding: 3px 2px;
 				font-size: 13px;
-				cursor: pointer;
+				text-align: start;
 				border-radius: 4px;
 
 				&:hover {
 					background-color: rgba(255, 255, 255, 0.06);
 				}
 
-				// Override norm.scss's global `input { width: 100%; padding: 7px 10px;
-				// border: 2px solid black; }`, which otherwise blows the checkbox up
-				// and shoves the label text away from it.
-				input[type="checkbox"] {
+				.indicator {
+					display: flex;
+					align-items: center;
+					justify-content: center;
 					flex: 0 0 auto;
 					width: 16px;
 					height: 16px;
-					padding: 0;
-					margin: 0;
 					border: 2px solid $text-color;
 					border-radius: 3px;
-					accent-color: $accent-color;
+				}
+
+				&.include .indicator {
+					border-color: $success;
+					background-color: $success;
+					color: $bg-color;
+					fill: $bg-color;
+				}
+
+				&.exclude .indicator {
+					border-color: $error;
+					background-color: $error;
+					color: $bg-color;
+					fill: $bg-color;
 				}
 			}
 		}

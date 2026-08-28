@@ -111,6 +111,9 @@ func (t *TMDB) applyDiscoverOptionsToMap(
 		// Same param name for both /discover/movie and /discover/tv.
 		m["with_genres"] = o.WithGenres
 	}
+	if o.WithoutGenres != "" {
+		m["without_genres"] = o.WithoutGenres
+	}
 	if o.WithWatchProviders != "" {
 		// Same param name for both. watch_region (required for this to take
 		// effect) is added by the caller (DiscoverMovies/DiscoverShows).

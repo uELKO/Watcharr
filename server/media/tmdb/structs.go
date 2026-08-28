@@ -865,8 +865,10 @@ type DiscoverOptions struct {
 	// Release types are listed on this page:
 	// https://developer.themoviedb.org/reference/movie-release-dates
 	WithReleaseType string
-	// Comma separated TMDB genre ids.
+	// Pipe separated TMDB genre ids (OR match - "has any of these").
 	WithGenres string
+	// Pipe separated TMDB genre ids to exclude (OR match - "has none of these").
+	WithoutGenres string
 	// Pipe separated TMDB watch provider ids (OR match). Requires a
 	// watch_region to actually take effect - the caller's `region` param
 	// is used for that automatically when this is set.

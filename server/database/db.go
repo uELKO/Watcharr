@@ -66,7 +66,6 @@ func Setup(db *gorm.DB) error {
 		&entity.Game{},
 		&entity.ArrRequest{},
 		&entity.Tag{},
-		&entity.ProviderChartSnapshot{},
 	)
 	if err != nil {
 		slog.Error("Setup: Auto migration failed.")

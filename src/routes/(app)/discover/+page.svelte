@@ -61,6 +61,7 @@
 		filter?: DiscoverFilter;
 		hideWatched?: boolean;
 		genres?: number[];
+		excludeGenres?: number[];
 		providers?: number[];
 		year?: number;
 		minRating?: number;
@@ -90,6 +91,7 @@
 	);
 	let hideWatchedFilter = $state(initialSavedFilters?.hideWatched ?? false);
 	let selectedGenres: number[] = $state(initialSavedFilters?.genres ?? []);
+	let excludedGenres: number[] = $state(initialSavedFilters?.excludeGenres ?? []);
 	let selectedProviders: number[] = $state(initialSavedFilters?.providers ?? []);
 	let selectedYear: string | number = $state(initialSavedFilters?.year ?? 0);
 	let selectedMinRating: string | number = $state(initialSavedFilters?.minRating ?? 0);
@@ -162,6 +164,7 @@
 		// vote_average). Providers can't do that (no per-item provider data
 		// on trending results at all), so those are dropped for Trending.
 		genres: selectedGenres.length > 0 ? selectedGenres.join("|") : undefined,
+		excludeGenres: excludedGenres.length > 0 ? excludedGenres.join("|") : undefined,
 		providers:
 			providerFilterSupported && selectedProviders.length > 0
 				? selectedProviders.join("|")
@@ -218,6 +221,7 @@
 			filter: discoverFilter,
 			hideWatched: hideWatchedFilter,
 			genres: selectedGenres,
+			excludeGenres: excludedGenres,
 			providers: selectedProviders,
 			year: selectedYear ? Number(selectedYear) : undefined,
 			minRating: selectedMinRating ? Number(selectedMinRating) : undefined,
@@ -300,13 +304,14 @@
 				</FilterPopover>
 				<FilterPopover
 					label="Genres"
-					active={selectedGenres.length > 0}
+					active={selectedGenres.length > 0 || excludedGenres.length > 0}
 					disabled={!!genreDisabledReason}
 					disabledReason={genreDisabledReason}
 				>
 					<GenreFilter
 						{discoverType}
 						bind:active={selectedGenres}
+						bind:excluded={excludedGenres}
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
 					/>
 				</FilterPopover>
@@ -330,13 +335,14 @@
 						onChange={() => dataLoader.runFn(PaginatedLoaderRunFnAction.Reset)}
 					/>
 				</FilterPopover>
-				{#if hideWatchedFilter || selectedGenres.length > 0 || selectedProviders.length > 0 || selectedYear || selectedMinRating}
+				{#if hideWatchedFilter || selectedGenres.length > 0 || excludedGenres.length > 0 || selectedProviders.length > 0 || selectedYear || selectedMinRating}
 					<button
 						type="button"
 						class="plain reset-all"
 						onclick={() => {
 							hideWatchedFilter = false;
 							selectedGenres = [];
+							excludedGenres = [];
 							selectedProviders = [];
 							selectedYear = 0;
 							selectedMinRating = 0;

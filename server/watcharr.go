@@ -49,6 +49,7 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/episode"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/logging"
+	"github.com/sbondCo/Watcharr/media/justwatch"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
 	taskl "github.com/sbondCo/Watcharr/task"
@@ -197,6 +198,7 @@ func main() {
 	br := router.NewBaseRouter(db, api, cfg)
 
 	tmdbService := tmdb.NewTMDB(cfg.TMDB_KEY, cfg.TMDB_LANG)
+	justwatchService := justwatch.NewJustWatch()
 
 	contentService := content.NewService(db, tmdbService)
 	tmdbService.AddContentProvider(contentService)
@@ -246,7 +248,7 @@ func main() {
 	followService := follow.NewService(db)
 	tagService := tag.NewService(db, watchedService)
 	searchService := search.NewService(db, br.Cfg, tmdbService, watchedService)
-	discoverService := discover.NewService(db, br.Cfg, tmdbService)
+	discoverService := discover.NewService(db, br.Cfg, tmdbService, justwatchService)
 	importService := imprt.NewService(
 		db,
 		watchedService,

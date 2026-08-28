@@ -9,25 +9,29 @@ import (
 
 	"github.com/sbondCo/Watcharr/config"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/media/justwatch"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	db   *gorm.DB
-	cfg  *config.ServerConfig
-	tmdb *tmdb.TMDB
+	db        *gorm.DB
+	cfg       *config.ServerConfig
+	tmdb      *tmdb.TMDB
+	justwatch *justwatch.JustWatch
 }
 
 func NewService(
 	db *gorm.DB,
 	cfg *config.ServerConfig,
 	tmdb *tmdb.TMDB,
+	justwatch *justwatch.JustWatch,
 ) *Service {
 	return &Service{
 		db,
 		cfg,
 		tmdb,
+		justwatch,
 	}
 }
 
@@ -37,18 +41,20 @@ func NewService(
 // callers zero out what doesn't apply (eg genres/providers are cleared for
 // DiscoverMulti, since those lists are per movie/tv).
 type discoverFilters struct {
-	genres    string
-	providers string
-	year      int
-	minRating float64
+	genres        string
+	excludeGenres string
+	providers     string
+	year          int
+	minRating     float64
 }
 
 func filtersFromRequest(r domain.DiscoverRequest) discoverFilters {
 	return discoverFilters{
-		genres:    r.Genres,
-		providers: r.Providers,
-		year:      r.Year,
-		minRating: r.MinRating,
+		genres:        r.Genres,
+		excludeGenres: r.ExcludeGenres,
+		providers:     r.Providers,
+		year:          r.Year,
+		minRating:     r.MinRating,
 	}
 }
 
@@ -88,6 +94,7 @@ func (s *Service) DiscoverMulti(
 	// types), but year/rating apply fine to anything.
 	f := filtersFromRequest(r)
 	f.genres = ""
+	f.excludeGenres = ""
 	f.providers = ""
 	switch r.Filter {
 	case domain.DiscoverFilterTrending:
@@ -209,8 +216,12 @@ func (s *Service) discoverMultiTrending(
 		return errors.New("content request failed")
 	}
 	wantedGenres := parseGenreIds(f.genres)
+	excludedGenres := parseGenreIds(f.excludeGenres)
 	for _, v := range tmdbRes.Results {
 		if len(wantedGenres) > 0 && !anyGenreMatches(v.GenreIds, wantedGenres) {
+			continue
+		}
+		if len(excludedGenres) > 0 && anyGenreMatches(v.GenreIds, excludedGenres) {
 			continue
 		}
 		if f.year > 0 {
@@ -278,6 +289,7 @@ func (s *Service) discoverMovieInTheatres(
 			ReleaseDateMax:     time.Now().AddDate(0, 0, 2),
 			WithReleaseType:    "2|3",
 			WithGenres:         f.genres,
+			WithoutGenres:      f.excludeGenres,
 			WithWatchProviders: f.providers,
 			Year:               f.year,
 			MinRating:          f.minRating,
@@ -313,6 +325,7 @@ func (s *Service) discoverMovieUpcoming(
 			ReleaseDateMax:     time.Now().AddDate(0, 1, 0),
 			WithReleaseType:    "2|3",
 			WithGenres:         f.genres,
+			WithoutGenres:      f.excludeGenres,
 			WithWatchProviders: f.providers,
 			Year:               f.year,
 			MinRating:          f.minRating,
@@ -345,6 +358,7 @@ func (s *Service) discoverMoviePopular(
 	tmdbRes, err := s.tmdb.DiscoverMovies(
 		tmdb.DiscoverOptions{
 			WithGenres:         f.genres,
+			WithoutGenres:      f.excludeGenres,
 			WithWatchProviders: f.providers,
 			Year:               f.year,
 			MinRating:          f.minRating,
@@ -380,6 +394,7 @@ func (s *Service) discoverTvUpcoming(
 			ReleaseDateMax:     time.Now().AddDate(0, 1, 0),
 			WithReleaseType:    "2|3",
 			WithGenres:         f.genres,
+			WithoutGenres:      f.excludeGenres,
 			WithWatchProviders: f.providers,
 			Year:               f.year,
 			MinRating:          f.minRating,
@@ -412,6 +427,7 @@ func (s *Service) discoverTvPopular(
 	tmdbRes, err := s.tmdb.DiscoverShows(
 		tmdb.DiscoverOptions{
 			WithGenres:         f.genres,
+			WithoutGenres:      f.excludeGenres,
 			WithWatchProviders: f.providers,
 			Year:               f.year,
 			MinRating:          f.minRating,

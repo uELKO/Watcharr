@@ -41,6 +41,8 @@ func (r *Router) AddRoutes() {
 	discover.GET("", router.WhereaboutsRequired(r.br.Cfg), router.PaginatedRequest(true), r.GetDiscover)
 	// Per-provider Top 10 charts (movies+shows merged, ranked by popularity)
 	discover.GET("/charts", router.WhereaboutsRequired(r.br.Cfg), r.GetCharts)
+	// JustWatch's own provider list, for the Charts page's provider picker
+	discover.GET("/charts/providers", router.WhereaboutsRequired(r.br.Cfg), r.GetChartProviders)
 }
 
 // NOTE: The handler functions use `copier` to copy values from the response
@@ -134,4 +136,13 @@ func (r *Router) GetCharts(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, charts)
+}
+
+func (r *Router) GetChartProviders(c *gin.Context) {
+	providers, err := r.service.ChartProviders(c.MustGet("userCountry").(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, providers)
 }

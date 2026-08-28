@@ -453,8 +453,10 @@ export type DiscoverFilterOption = `${DiscoverFilter}`;
 export interface DiscoverRequest extends PaginationParams {
 	type?: SearchType;
 	filter?: DiscoverFilter;
-	/** Comma separated TMDB genre ids. Only applies to movie/show discover, not Trending. */
+	/** Pipe separated TMDB genre ids to include. Supported for Trending too (server-side post-filter). */
 	genres?: string;
+	/** Pipe separated TMDB genre ids to exclude. Supported for Trending too (server-side post-filter). */
+	excludeGenres?: string;
 	/** Pipe separated TMDB watch provider ids. Only applies to movie/show discover, not Trending. */
 	providers?: string;
 	/** Exact release/first-air year. */
@@ -465,14 +467,25 @@ export interface DiscoverRequest extends PaginationParams {
 
 /** One entry of a provider's Top 10 chart. */
 export interface ChartItem extends Media {
-	/** Rank movement vs ~7 days ago: "up" | "down" | "same" | "" (no history yet). */
+	/** Position in this provider's Top 10, 1-indexed. */
+	rank: number;
+	/** Rank movement vs JustWatch's own last-known rank: "up" | "down" | "same" | "" (unknown). */
 	movement?: "up" | "down" | "same" | "";
 }
 
-/** A Top 10 chart (movies+shows merged, ranked by popularity) for one streaming provider. */
+/** A Top 10 chart (movies+shows merged, ranked by JustWatch popularity) for one streaming provider. */
 export interface ProviderChart {
-	providerId: number;
+	/** JustWatch's provider short name (eg "nfx" for Netflix). */
+	provider: string;
 	items: ChartItem[];
+}
+
+/** A streaming provider as JustWatch knows it (used by the Charts page). */
+export interface JustWatchProvider {
+	packageId: number;
+	clearName: string;
+	shortName: string;
+	icon: string;
 }
 
 export interface PersonDetailsResponse {
