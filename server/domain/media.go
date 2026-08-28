@@ -66,6 +66,11 @@ type Media struct {
 	// Status of the media (released, ended, etc).
 	// Depending on media type, this will contain different values.
 	Status string `json:"status,omitempty"`
+	// External (non-TMDB) ratings, currently sourced from JustWatch's
+	// scoring data (which itself pulls from IMDb/Rotten Tomatoes) when a
+	// matching title was found there. Only populated on content detail
+	// pages - not worth an extra lookup per poster in a grid.
+	ExternalScoring *MediaExternalScoring `json:"externalScoring,omitempty"`
 
 	//
 	// Properties only for movies/tv.
@@ -91,6 +96,19 @@ type Media struct {
 
 	// Game modes.
 	GameModes []MediaGenre `json:"gameModes,omitempty"`
+}
+
+// MediaExternalScoring holds ratings from outside TMDB (currently only
+// available via JustWatch's scoring data).
+type MediaExternalScoring struct {
+	// IMDb rating out of 10.
+	ImdbScore float64 `json:"imdbScore,omitempty"`
+	// Number of IMDb votes.
+	ImdbVotes int `json:"imdbVotes,omitempty"`
+	// Rotten Tomatoes Tomatometer (0-100).
+	TomatoMeter int `json:"tomatoMeter,omitempty"`
+	// Rotten Tomatoes "Certified Fresh" seal.
+	CertifiedFresh bool `json:"certifiedFresh,omitempty"`
 }
 
 func (t Media) GetId() int {

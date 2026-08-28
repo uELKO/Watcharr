@@ -18,9 +18,16 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	gocache "github.com/robfig/go-cache"
 )
 
 const apiURL = "https://apis.justwatch.com/graphql"
+
+// ContentStore caches JustWatch responses, same pattern as tmdb.ContentStore -
+// this is an unofficial/undocumented API, so caching also means we're not
+// hammering it more than necessary.
+var ContentStore = gocache.New(time.Hour*24, time.Minute)
 
 type JustWatch struct {
 	client *http.Client

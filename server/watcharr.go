@@ -261,7 +261,7 @@ func main() {
 	importTraktService := imprt.NewTraktService(importService)
 
 	auth.NewRouter(br, authService, authTrustedHeaderService).AddRoutes()
-	content.NewRouter(br, contentService, watchedService, tmdbService).AddRoutes()
+	content.NewRouter(br, contentService, watchedService, tmdbService, justwatchService).AddRoutes()
 	watched.NewRouter(br, watchedService).AddRoutes()
 	season.NewRouter(br, watchedSeasonService).AddRoutes()
 	episode.NewRouter(br, watchedEpisodeService).AddRoutes()

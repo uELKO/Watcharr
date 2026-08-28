@@ -146,6 +146,10 @@
 								: undefined}
 							voteAverage={movie.rating}
 							voteCount={movie.ratingCount}
+							imdbScore={movie.externalScoring?.imdbScore}
+							imdbVotes={movie.externalScoring?.imdbVotes}
+							tomatoMeter={movie.externalScoring?.tomatoMeter}
+							certifiedFresh={movie.externalScoring?.certifiedFresh}
 						/>
 
 						<span class="quick-info">

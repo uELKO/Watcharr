@@ -1,5 +1,11 @@
 package justwatch
 
+import (
+	"time"
+
+	"github.com/sbondCo/Watcharr/cache"
+)
+
 const providersQuery = `
 query GetProviders($country: Country!) {
 	packages(country: $country, platform: WEB, includeAddons: true) {
@@ -22,6 +28,11 @@ type Package struct {
 // Providers returns every provider JustWatch has offers for in the given
 // country (ISO 3166-1 alpha-2, e.g. "DE", "US").
 func (j *JustWatch) Providers(country string) ([]Package, error) {
+	cacheKey := cache.CreateCacheKey("JustWatchProviders", country)
+	cached := new([]Package)
+	if cache.GetCache(ContentStore, cacheKey, cached) {
+		return *cached, nil
+	}
 	var resp struct {
 		Packages []Package `json:"packages"`
 	}
@@ -38,5 +49,6 @@ func (j *JustWatch) Providers(country string) ([]Package, error) {
 			resp.Packages[i].Icon = "https://images.justwatch.com" + resp.Packages[i].Icon
 		}
 	}
+	ContentStore.Set(cacheKey, &resp.Packages, time.Hour*24)
 	return resp.Packages, nil
 }

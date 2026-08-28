@@ -1,5 +1,11 @@
 package justwatch
 
+import (
+	"time"
+
+	"github.com/sbondCo/Watcharr/cache"
+)
+
 const popularQuery = `
 query GetPopularTitles(
 	$popularTitlesFilter: TitleFilter
@@ -72,6 +78,11 @@ type PopularEntry struct {
 // packageShortName is JustWatch's own 3-letter provider code (e.g. "nfx"
 // for Netflix), from Providers.
 func (j *JustWatch) Popular(country string, packageShortName string, count int) ([]PopularEntry, error) {
+	cacheKey := cache.CreateCacheKey("JustWatchPopular", country, packageShortName, count)
+	cached := new([]PopularEntry)
+	if cache.GetCache(ContentStore, cacheKey, cached) {
+		return *cached, nil
+	}
 	var resp struct {
 		PopularTitles struct {
 			Edges []struct {
@@ -100,5 +111,8 @@ func (j *JustWatch) Popular(country string, packageShortName string, count int) 
 	for i, e := range resp.PopularTitles.Edges {
 		entries[i] = e.Node
 	}
+	// Shorter TTL than other justwatch caches - chart rank/trend is the
+	// point of this data, so it shouldn't go too stale.
+	ContentStore.Set(cacheKey, &entries, time.Hour)
 	return entries, nil
 }

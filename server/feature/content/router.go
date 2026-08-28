@@ -12,6 +12,7 @@ import (
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
 	"github.com/sbondCo/Watcharr/feature/watched/addedtocontent"
+	"github.com/sbondCo/Watcharr/media/justwatch"
 	"github.com/sbondCo/Watcharr/media/tmdb"
 	"github.com/sbondCo/Watcharr/router"
 	"github.com/sbondCo/Watcharr/util"
@@ -24,10 +25,11 @@ type WatchedProvider interface {
 }
 
 type Router struct {
-	br   *router.BaseRouter
-	cs   *Service
-	wp   WatchedProvider
-	tmdb *tmdb.TMDB
+	br        *router.BaseRouter
+	cs        *Service
+	wp        WatchedProvider
+	tmdb      *tmdb.TMDB
+	justwatch *justwatch.JustWatch
 }
 
 func NewRouter(
@@ -35,13 +37,48 @@ func NewRouter(
 	cs *Service,
 	wp WatchedProvider,
 	tmdb *tmdb.TMDB,
+	justwatch *justwatch.JustWatch,
 ) *Router {
 	return &Router{
-		br:   br,
-		cs:   cs,
-		wp:   wp,
-		tmdb: tmdb,
+		br:        br,
+		cs:        cs,
+		wp:        wp,
+		tmdb:      tmdb,
+		justwatch: justwatch,
 	}
+}
+
+// externalScoringFor looks up JustWatch's aggregated (IMDb/Rotten Tomatoes)
+// scoring for a title by name, matched to the given TMDB id. Best-effort:
+// JustWatch is an unofficial/undocumented API, so failures or "not found"
+// here should never break the content page, just leave scoring absent.
+func (r *Router) externalScoringFor(title string, tmdbId int, region string) *domain.MediaExternalScoring {
+	s, err := r.justwatch.ScoringForTmdbId(title, region, tmdbId)
+	if err != nil {
+		slog.Warn("externalScoringFor: JustWatch lookup failed", "title", title, "tmdbId", tmdbId, "error", err)
+		return nil
+	}
+	if s == nil {
+		return nil
+	}
+	es := &domain.MediaExternalScoring{}
+	if s.ImdbScore != nil {
+		es.ImdbScore = *s.ImdbScore
+	}
+	if s.ImdbVotes != nil {
+		es.ImdbVotes = int(*s.ImdbVotes)
+	}
+	if s.TomatoMeter != nil {
+		es.TomatoMeter = *s.TomatoMeter
+	}
+	if s.CertifiedFresh != nil {
+		es.CertifiedFresh = *s.CertifiedFresh
+	}
+	if es.ImdbScore == 0 && es.TomatoMeter == 0 {
+		// Nothing usable came back.
+		return nil
+	}
+	return es
 }
 
 func (r *Router) AddRoutes() {
@@ -94,6 +131,9 @@ func (r *Router) GetMovieDetails(c *gin.Context) {
 		return
 	}
 	contentAsMedia := content.AsMedia()
+	contentAsMedia.ExternalScoring = r.externalScoringFor(
+		content.Title, content.ID, c.MustGet("userCountry").(string),
+	)
 	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,
@@ -152,6 +192,9 @@ func (r *Router) GetTvDetails(c *gin.Context) {
 		return
 	}
 	contentAsMedia := content.AsMedia()
+	contentAsMedia.ExternalScoring = r.externalScoringFor(
+		content.Name, content.ID, c.MustGet("userCountry").(string),
+	)
 	if err := addedtocontent.AddSingularAndList(
 		r.wp,
 		userId,

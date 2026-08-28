@@ -367,6 +367,15 @@ export interface Media {
 	gameModes?: MediaGenre[];
 	seasons?: MediaSeason[];
 	isShowAnime?: boolean;
+	/** From JustWatch's scoring data (IMDb/Rotten Tomatoes), when a match was found. Only populated on content detail pages. */
+	externalScoring?: MediaExternalScoring;
+}
+
+export interface MediaExternalScoring {
+	imdbScore?: number;
+	imdbVotes?: number;
+	tomatoMeter?: number;
+	certifiedFresh?: boolean;
 }
 
 export function getContentTypeFromMedia(m: Media): ContentType | undefined {

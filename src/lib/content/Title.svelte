@@ -8,10 +8,25 @@
 		endDate?: Date;
 		voteAverage?: number;
 		voteCount?: number;
+		/** From JustWatch's scoring data, when a match was found. */
+		imdbScore?: number;
+		imdbVotes?: number;
+		tomatoMeter?: number;
+		certifiedFresh?: boolean;
 	}
 
-	let { homepage, title, releaseDate, endDate, voteAverage, voteCount }: Props =
-		$props();
+	let {
+		homepage,
+		title,
+		releaseDate,
+		endDate,
+		voteAverage,
+		voteCount,
+		imdbScore,
+		imdbVotes,
+		tomatoMeter,
+		certifiedFresh,
+	}: Props = $props();
 
 	// if voteAvg bigger than 10, it is out of 100, so no need to * by 10
 	const vote = $derived(
@@ -45,12 +60,34 @@
 			</span>
 		{/if}
 	</span>
-	<span
-		class="rating"
-		title={`Rating: ${vote} out of 10 (based on ${voteCount ?? 0} votes)`}
-	>
-		<span>*</span>
-		{vote}
+	<span class="ratings">
+		<span
+			class="rating"
+			title={`TMDB Rating: ${vote} out of 10 (based on ${voteCount ?? 0} votes)`}
+		>
+			<span>*</span>
+			{vote}
+		</span>
+		{#if imdbScore || tomatoMeter}
+			<span class="external-ratings">
+				{#if imdbScore}
+					<span
+						class="external-rating imdb"
+						title={`IMDb Rating: ${imdbScore} out of 10 (based on ${imdbVotes ?? 0} votes)`}
+					>
+						IMDb {imdbScore}
+					</span>
+				{/if}
+				{#if tomatoMeter}
+					<span
+						class="external-rating rt"
+						title={`Rotten Tomatoes: ${tomatoMeter}%${certifiedFresh ? " - Certified Fresh" : ""}`}
+					>
+						🍅 {tomatoMeter}%
+					</span>
+				{/if}
+			</span>
+		{/if}
 	</span>
 </span>
 
@@ -75,13 +112,19 @@
 			}
 		}
 
+		.ratings {
+			display: flex;
+			flex-flow: column;
+			align-items: flex-end;
+			gap: 4px;
+			margin-left: auto;
+		}
+
 		.rating {
 			display: flex;
 			align-items: start;
 			justify-content: center;
 			gap: 5px;
-			color: green;
-			margin-left: auto;
 			font-size: 22px;
 			color: gold;
 			font-weight: bolder;
@@ -92,6 +135,25 @@
 				font-size: 40px;
 				line-height: 0.7;
 				margin-top: 7px;
+			}
+		}
+
+		.external-ratings {
+			display: flex;
+			gap: 8px;
+			font-size: 12px;
+			font-weight: bold;
+
+			.external-rating {
+				white-space: nowrap;
+
+				&.imdb {
+					color: #f5c518;
+				}
+
+				&.rt {
+					color: $text-color-accent;
+				}
 			}
 		}
 	}
