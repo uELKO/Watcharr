@@ -175,10 +175,23 @@ Excluded on purpose: #1012 (IMDb rating + custom lists) — not planned for now.
 
 - [x] **Charts page: Top 10 per streaming provider** (not from an upstream
       issue, our own idea). New `/charts` page — pick providers, see a ranked
-      Top 10 (movies+shows merged by TMDB popularity) per provider, with a
-      rank-movement indicator (▲/▼ vs ~7 days ago) built from a new daily
-      snapshot table + recurring task, since TMDB has no native
-      trending-by-provider-over-time endpoint.
+      Top 10 (movies+shows merged) per provider with a rank-movement
+      indicator (▲/▼). Originally approximated from TMDB popularity + our
+      own daily snapshot table (TMDB has no trending-by-provider concept at
+      all); replaced with JustWatch's own public GraphQL API (unofficial,
+      undocumented - apis.justwatch.com/graphql, the same endpoint
+      justwatch.com's frontend uses) once we found it returns real
+      rank/trend data per provider directly - see `server/media/justwatch`.
+      Own provider picker (JustWatch's own short names/icons, not TMDB's
+      provider IDs); each entry's `tmdb_id` is used to pull full TMDB
+      details so cards look like every other poster in the app. Snapshot
+      table + task removed as no longer needed.
+
+- [x] **Discover: genre exclude filter** (not from an upstream issue).
+      Genre filter cycles three states per click, JustWatch-style: neutral →
+      include → exclude → neutral. New `WithoutGenres`/`without_genres`
+      threaded through every discover mode alongside the existing include
+      list, including the Trending post-filter.
 
 - [ ] **#409** — Notifications for upcoming releases
       https://github.com/sbondCo/Watcharr/issues/409
