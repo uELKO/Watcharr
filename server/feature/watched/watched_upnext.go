@@ -11,20 +11,24 @@ import (
 	"github.com/sbondCo/Watcharr/feature/watched/watchedutil"
 )
 
-// UpNextItemKind distinguishes the two kinds of card the "Up Next" row can
-// show: the next unwatched episode of a show being WATCHING, or a PLANNED
-// movie/show with a known, still-upcoming release date.
+// UpNextItemKind distinguishes the three kinds of card the "Up Next" row can
+// show: the next unwatched episode of a show being WATCHING, a show that
+// was previously watched (has watched history) and has a new, unwatched
+// season now that a PLANNED->WATCHING automation moved it back to PLANNED
+// for, or a PLANNED movie/show with a known, still-upcoming release date.
 type UpNextItemKind string
 
 const (
-	UpNextKindEpisode UpNextItemKind = "episode"
-	UpNextKindRelease UpNextItemKind = "release"
+	UpNextKindEpisode   UpNextItemKind = "episode"
+	UpNextKindNewSeason UpNextItemKind = "newseason"
+	UpNextKindRelease   UpNextItemKind = "release"
 )
 
 // UpNextItem describes one card in the "Up Next" row on the overview page -
-// either the next unwatched episode of an in-progress show (Kind ==
-// UpNextKindEpisode), or a PLANNED movie/show that hasn't released yet
-// (Kind == UpNextKindRelease).
+// the next unwatched episode of an in-progress show (Kind ==
+// UpNextKindEpisode), the next unwatched episode of a show that got a new
+// season since being finished (Kind == UpNextKindNewSeason), or a PLANNED
+// movie/show that hasn't released yet (Kind == UpNextKindRelease).
 type UpNextItem struct {
 	Kind      UpNextItemKind `json:"kind"`
 	WatchedID uint           `json:"watchedId"`
@@ -85,6 +89,13 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		}
 	}
 
+	newSeasonItems, err := s.newSeasonEpisodes(userId, wpr)
+	if err != nil {
+		slog.Warn("UpNext: newSeasonEpisodes query failed", "error", err)
+	} else {
+		items = append(items, newSeasonItems...)
+	}
+
 	releases, err := s.upcomingPlannedReleases(userId)
 	if err != nil {
 		slog.Warn("UpNext: upcoming planned releases query failed", "error", err)
@@ -92,6 +103,44 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		items = append(items, releases...)
 	}
 
+	return items, nil
+}
+
+// newSeasonEpisodes finds shows the user previously watched at least one
+// episode of that are now PLANNED again - ie a new season arrived since
+// they finished it (see season.RefreshFinishedShowsForNewSeasons, which
+// moves a FINISHED show back to PLANNED when TMDB shows a season with no
+// watched entry at all) - and returns the next unwatched episode for each,
+// same as an actively WATCHING show, just flagged with UpNextKindNewSeason
+// so the client can call it out distinctly. Without this, a finished show
+// getting a new season is easy to miss - it's not WATCHING (so not in the
+// row above) and its new season has already aired (so it's not an
+// upcoming release either).
+func (s *Service) newSeasonEpisodes(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNextItem, error) {
+	var w []entity.Watched
+	res := s.db.
+		Joins("Content").
+		Joins("Game").
+		Preload("WatchedEpisodes").
+		Where("watcheds.user_id = ? AND Content.type = ? AND watcheds.status = ?",
+			userId, entity.SHOW, entity.PLANNED).
+		Scopes(watchedRefineSort(wpr, userId)).
+		Find(&w)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	items := []UpNextItem{}
+	for i := range w {
+		if len(w[i].WatchedEpisodes) == 0 {
+			// Never actually started - a plain new PLANNED add, not a
+			// "resuming after a new season" case.
+			continue
+		}
+		if item, ok := s.nextEpisodeFor(&w[i]); ok {
+			item.Kind = UpNextKindNewSeason
+			items = append(items, item)
+		}
+	}
 	return items, nil
 }
 

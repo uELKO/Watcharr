@@ -1,10 +1,18 @@
-<!-- "Up Next" row: two kinds of card.
+<!-- "Up Next" row: three kinds of card.
      - "episode": next unwatched episode per in-progress (Watching) show,
        with a quick "mark watched" action. The status picker's FINISHED
        option is repurposed to mean "mark this next episode watched" (the
        point of this row) rather than the show as a whole; every other
        option (PLANNED/WATCHING/HOLD/DROPPED/DELETE) updates the show
        exactly like it would from any other poster.
+     - "newseason": same as "episode" (same badge/subtitle/repurposed
+       FINISHED action), for a show that was previously watched and is now
+       PLANNED again because a new season arrived since it was finished -
+       otherwise easy to miss, since it's neither WATCHING nor an upcoming
+       release (the new season has already aired). Only difference from
+       "episode" is a "New season" badge instead of the air-date one, and
+       the status button shows PLANNED (its real status) instead of
+       WATCHING.
      - "release": a PLANNED movie/show with a known, still-upcoming release
        date - the "coming soon" reminder half. Status here behaves normally
        (no repurposing), same as any other poster.
@@ -26,7 +34,7 @@
 	import type { SupportedMedia, WatchedStatus } from "@/types";
 
 	interface UpNextItem {
-		kind: "episode" | "release";
+		kind: "episode" | "newseason" | "release";
 		watchedId: number;
 		tmdbId: number;
 		contentType: "movie" | "tv";
@@ -147,7 +155,10 @@
 	function handleStatusClick(item: UpNextItem, type: WatchedStatus | "DELETE") {
 		if (type === "DELETE") {
 			removeShow(item);
-		} else if (item.kind === "episode" && type === "FINISHED") {
+		} else if (
+			(item.kind === "episode" || item.kind === "newseason") &&
+			type === "FINISHED"
+		) {
 			markWatched(item);
 		} else {
 			updateShowStatus(item, type);
@@ -200,21 +211,27 @@
 					{:else}
 						<div class="noimg"><Icon i="reel" wh={30} /></div>
 					{/if}
-					{#if item.kind === "episode" && item.airDate && activeId !== item.watchedId}
+					{#if item.kind === "newseason" && activeId !== item.watchedId}
+						<div class="air-badge future" title="A new season is available">
+							<Icon i="sparkles" wh={12} /> New season
+						</div>
+					{:else if item.kind === "episode" && item.airDate && activeId !== item.watchedId}
 						{@const future = new Date(item.airDate) > new Date()}
 						<div
 							class="air-badge"
 							class:future
 							title={future ? "Airs on this date" : "TV broadcast date"}
 						>
-							{future ? "📺 " : ""}{formatGermanDate(new Date(item.airDate))}
+							{#if future}<Icon i="tv" wh={12} />{/if}
+							{formatGermanDate(new Date(item.airDate))}
 						</div>
 					{:else if item.kind === "release" && item.releaseDate && activeId !== item.watchedId}
 						<div class="air-badge future" title="Release date">
-							🎬 {formatGermanDate(new Date(item.releaseDate))}
+							<Icon i="ticket" wh={12} />
+							{formatGermanDate(new Date(item.releaseDate))}
 						</div>
 					{/if}
-					{#if item.kind === "episode" && activeId !== item.watchedId}
+					{#if (item.kind === "episode" || item.kind === "newseason") && activeId !== item.watchedId}
 						<PosterEpisodeBadge
 							text={episodeBadgeText(item)}
 							remaining={item.remainingEpisodes}
@@ -235,7 +252,7 @@
 						>
 							<h2>{item.showTitle}</h2>
 							<span>
-								{#if item.kind === "episode"}
+								{#if item.kind === "episode" || item.kind === "newseason"}
 									{episodeBadgeText(item)}{item.seasonEpisodeCount
 										? `/${item.seasonEpisodeCount}`
 										: ""}{item.episodeName ? ` · ${item.episodeName}` : ""}
@@ -254,7 +271,9 @@
 								status={item.kind === "episode" ? "WATCHING" : "PLANNED"}
 								handleStatusClick={(t) => handleStatusClick(item, t)}
 								disableInteraction={busyId === item.watchedId}
-								btnTooltip="Mark next episode watched"
+								btnTooltip={item.kind === "episode" || item.kind === "newseason"
+									? "Mark next episode watched"
+									: ""}
 							/>
 						</div>
 					</div>
@@ -313,10 +332,14 @@
 			top: 6px;
 			right: 6px;
 			z-index: 5;
+			display: flex;
+			align-items: center;
+			gap: 4px;
 			padding: 3px 10px;
 			border-radius: 20px;
 			background-color: rgba(0, 0, 0, 0.7);
 			color: $text-color-accent;
+			fill: $text-color-accent;
 			font-size: 11px;
 			font-weight: bold;
 			letter-spacing: 0.3px;
@@ -324,6 +347,7 @@
 
 			&.future {
 				color: $rating-color;
+				fill: $rating-color;
 			}
 		}
 
