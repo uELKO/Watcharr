@@ -56,6 +56,7 @@
 			"small-scrollbar",
 			status ? "has-status" : "",
 			direction,
+			small ? "small" : "",
 		].join(" ")}
 	>
 		{#each Object.entries(watchedStatuses) as [statusName, icon] (statusName)}
@@ -163,6 +164,22 @@
 
 			&.has-status :global(svg) {
 				padding: 0 4.5px;
+			}
+
+			// Narrow contexts (eg. the episode list) are too thin for the
+			// icon to scale via `width: 100%` without Firefox rendering it
+			// too small - force a fixed, legible size there instead.
+			&.small button {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 34px;
+				min-height: 34px;
+
+				& :global(svg) {
+					width: 22px;
+					padding: 0;
+				}
 			}
 		}
 	}
