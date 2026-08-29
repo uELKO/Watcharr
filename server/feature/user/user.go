@@ -68,6 +68,15 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 	if ur.ChartsProviders != nil {
 		user.ChartsProviders = ur.ChartsProviders
 	}
+	if ur.NtfyUrl != nil {
+		user.NtfyUrl = ur.NtfyUrl
+	}
+	if ur.NotifyReleases != nil {
+		user.NotifyReleases = ur.NotifyReleases
+	}
+	if ur.NotifyNewSeasons != nil {
+		user.NotifyNewSeasons = ur.NotifyNewSeasons
+	}
 	s.db.Save(&user)
 	return entity.UserSettings{
 		Private:                  user.Private,
@@ -81,6 +90,9 @@ func (s *Service) UserUpdate(userId uint, ur entity.UserSettings) (entity.UserSe
 		DiscoverFilters:          user.DiscoverFilters,
 		HideFollowing:            user.HideFollowing,
 		ChartsProviders:          user.ChartsProviders,
+		NtfyUrl:                  user.NtfyUrl,
+		NotifyReleases:           user.NotifyReleases,
+		NotifyNewSeasons:         user.NotifyNewSeasons,
 	}, nil
 }
 
@@ -106,6 +118,9 @@ func (s *Service) UserGetSettings(userId uint) (entity.UserSettings, error) {
 		DiscoverFilters:          user.DiscoverFilters,
 		HideFollowing:            user.HideFollowing,
 		ChartsProviders:          user.ChartsProviders,
+		NtfyUrl:                  user.NtfyUrl,
+		NotifyReleases:           user.NotifyReleases,
+		NotifyNewSeasons:         user.NotifyNewSeasons,
 	}, nil
 }
 

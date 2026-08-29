@@ -2,12 +2,14 @@ package season
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strconv"
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/media/tmdb"
+	"github.com/sbondCo/Watcharr/notify"
 	"gorm.io/gorm"
 )
 
@@ -44,13 +46,16 @@ func RefreshFinishedShowsForNewSeasons(
 		}
 	}
 	var users []entity.User
-	if res := db.Select("id", "automate_show_statuses").Where("id IN ?", userIds).Find(&users); res.Error != nil {
+	if res := db.Select("id", "automate_show_statuses", "ntfy_url", "notify_new_seasons").
+		Where("id IN ?", userIds).Find(&users); res.Error != nil {
 		slog.Error("RefreshFinishedShowsForNewSeasons: Failed to query users!", "error", res.Error)
 		return
 	}
 	automateByUser := make(map[uint]bool, len(users))
+	usersById := make(map[uint]entity.User, len(users))
 	for _, u := range users {
 		automateByUser[u.ID] = u.AutomateShowStatuses == nil || *u.AutomateShowStatuses
+		usersById[u.ID] = u
 	}
 
 	checked := 0
@@ -100,6 +105,19 @@ func RefreshFinishedShowsForNewSeasons(
 			Type:      entity.STATUS_CHANGED_AUTO,
 			Data:      string(actData),
 		}, false)
+
+		if u, ok := usersById[w.UserID]; ok &&
+			u.NtfyUrl != nil && *u.NtfyUrl != "" &&
+			(u.NotifyNewSeasons == nil || *u.NotifyNewSeasons) &&
+			!notify.AlreadyNotified(db, w.UserID, w.ID, entity.NotificationTypeNewSeason) {
+			msg := fmt.Sprintf("🆕 New season available: %s", w.Content.Title)
+			if err := notify.SendNtfy(*u.NtfyUrl, msg); err != nil {
+				slog.Error("RefreshFinishedShowsForNewSeasons: Failed to send notification!",
+					"watched_id", w.ID, "error", err)
+			} else {
+				notify.MarkNotified(db, w.UserID, w.ID, entity.NotificationTypeNewSeason)
+			}
+		}
 	}
 	slog.Debug("RefreshFinishedShowsForNewSeasons: Done.", "checked", checked, "updated", updated)
 }

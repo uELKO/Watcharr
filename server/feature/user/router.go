@@ -8,6 +8,7 @@ import (
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/auth/authmiddleware"
+	"github.com/sbondCo/Watcharr/notify"
 	"github.com/sbondCo/Watcharr/router"
 )
 
@@ -42,6 +43,8 @@ func (r *Router) AddRoutes() {
 	u.POST("/bio", r.UpdateBio)
 	// Upload avatar
 	u.POST("/avatar", r.UpdateAvatar)
+	// Send a test ntfy notification to a given topic URL
+	u.POST("/notify/test", r.TestNotify)
 }
 
 // Get current user info
@@ -129,6 +132,23 @@ func (r *Router) UpdateBio(c *gin.Context) {
 		return
 	}
 	c.AbortWithStatusJSON(http.StatusBadRequest, router.ErrorResponse{Error: err.Error()})
+}
+
+// Send a test ntfy notification to whatever topic URL is passed in - lets
+// the client verify a topic works before (or without) saving it.
+func (r *Router) TestNotify(c *gin.Context) {
+	var req struct {
+		NtfyUrl string `json:"ntfyUrl" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, router.ErrorResponse{Error: "ntfyUrl is required"})
+		return
+	}
+	if err := notify.SendNtfy(req.NtfyUrl, "✅ Test notification from Watcharr"); err != nil {
+		c.JSON(http.StatusBadRequest, router.ErrorResponse{Error: "failed to send: " + err.Error()})
+		return
+	}
+	c.Status(http.StatusOK)
 }
 
 // Upload avatar

@@ -10,6 +10,7 @@ import (
 	"github.com/sbondCo/Watcharr/database"
 	"github.com/sbondCo/Watcharr/domain"
 	"github.com/sbondCo/Watcharr/feature/arr"
+	"github.com/sbondCo/Watcharr/feature/watched"
 	"github.com/sbondCo/Watcharr/feature/watched/season"
 	"github.com/sbondCo/Watcharr/image"
 	"github.com/sbondCo/Watcharr/media/tmdb"
@@ -87,6 +88,12 @@ func SetupTasks(cfg *config.ServerConfig, db *gorm.DB, tmdbSvc *tmdb.TMDB, activ
 		"Refresh Finished Shows": {
 			f: func() {
 				season.RefreshFinishedShowsForNewSeasons(db, tmdbSvc, activityProvider)
+			},
+			dd: 24 * time.Hour,
+		},
+		"Send Release Notifications": {
+			f: func() {
+				watched.SendReleaseNotifications(db)
 			},
 			dd: 24 * time.Hour,
 		},

@@ -257,6 +257,12 @@ export interface UserSettings {
 	hideFollowing?: boolean;
 	/** Last-selected Charts page streaming providers, pipe separated TMDB provider ids. */
 	chartsProviders?: string;
+	/** ntfy topic URL to send notifications to. Empty disables notifications. */
+	ntfyUrl?: string;
+	/** Notify when a PLANNED movie/show releases today. */
+	notifyReleases?: boolean;
+	/** Notify when a previously-watched show gets a new season. */
+	notifyNewSeasons?: boolean;
 }
 
 export enum RatingSystem {

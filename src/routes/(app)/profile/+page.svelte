@@ -35,6 +35,27 @@
 	let hideDiscoverPeopleDisabled = $state(false);
 	let hideTagsDisabled = $state(false);
 	let hideFollowingDisabled = $state(false);
+	let ntfyUrlDisabled = $state(false);
+	let testNotifySending = $state(false);
+
+	async function sendTestNotification() {
+		if (!settings?.ntfyUrl) {
+			notify({ text: "Enter a ntfy topic URL first.", type: "error" });
+			return;
+		}
+		testNotifySending = true;
+		try {
+			await req.post("/user/notify/test", { ntfyUrl: settings.ntfyUrl });
+			notify({ text: "Test notification sent!", type: "success" });
+		} catch (err) {
+			console.error("sendTestNotification failed", err);
+			notify({ text: "Failed to send test notification!", type: "error" });
+		} finally {
+			testNotifySending = false;
+		}
+	}
+	let notifyReleasesDisabled = $state(false);
+	let notifyNewSeasonsDisabled = $state(false);
 	let pwChangeModalOpen = $state(false);
 	let getProfilePromise = $state(getProfile());
 	let jellyfinSyncModalOpen = $state(false);
@@ -360,6 +381,70 @@
 				/>
 			</Setting>
 
+			<Setting
+				title="Notifications (ntfy)"
+				desc="ntfy topic URL to send notifications to (eg https://ntfy.sh/my-watcharr-topic, or your own self-hosted instance). Leave empty to disable."
+			>
+				<div class="ntfy-row">
+					<input
+						type="text"
+						placeholder="https://ntfy.sh/my-topic"
+						bind:value={settings!.ntfyUrl}
+						onblur={() => {
+							ntfyUrlDisabled = true;
+							updateUserSetting("ntfyUrl", settings!.ntfyUrl, () => {
+								ntfyUrlDisabled = false;
+							});
+						}}
+						disabled={ntfyUrlDisabled}
+					/>
+					<button
+						type="button"
+						class="secondary"
+						disabled={testNotifySending}
+						onclick={sendTestNotification}
+					>
+						Send Test
+					</button>
+				</div>
+			</Setting>
+
+			<Setting
+				title="Notify: New Releases"
+				desc="Notify when a Planned movie/show releases today?"
+				row
+			>
+				<Checkbox
+					name="notifyReleases"
+					disabled={notifyReleasesDisabled}
+					value={settings?.notifyReleases}
+					toggled={(on) => {
+						notifyReleasesDisabled = true;
+						updateUserSetting("notifyReleases", on, () => {
+							notifyReleasesDisabled = false;
+						});
+					}}
+				/>
+			</Setting>
+
+			<Setting
+				title="Notify: New Seasons"
+				desc="Notify when a previously-watched show gets a new season?"
+				row
+			>
+				<Checkbox
+					name="notifyNewSeasons"
+					disabled={notifyNewSeasonsDisabled}
+					value={settings?.notifyNewSeasons}
+					toggled={(on) => {
+						notifyNewSeasonsDisabled = true;
+						updateUserSetting("notifyNewSeasons", on, () => {
+							notifyNewSeasonsDisabled = false;
+						});
+					}}
+				/>
+			</Setting>
+
 			<RatingSetting />
 
 			<div class="row btns">
@@ -409,6 +494,21 @@
 </div>
 
 <style lang="scss">
+	.ntfy-row {
+		display: flex;
+		gap: 8px;
+
+		input {
+			flex: 1 1 auto;
+		}
+
+		button {
+			flex: 0 0 auto;
+			width: min-content;
+			white-space: nowrap;
+		}
+	}
+
 	.content {
 		display: flex;
 		width: 100%;

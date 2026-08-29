@@ -77,6 +77,15 @@ type UserSettings struct {
 	// Last-selected Charts page streaming providers, pipe separated TMDB
 	// provider ids (eg "8|9|337") - restored on page load (frontend only).
 	ChartsProviders *string `gorm:"default:''" json:"chartsProviders"`
+	// ntfy (https://ntfy.sh, or a self-hosted instance) topic URL to send
+	// notifications to. Empty means notifications are off, regardless of
+	// the toggles below.
+	NtfyUrl *string `gorm:"default:''" json:"ntfyUrl"`
+	// Notify when a PLANNED movie/show releases today.
+	NotifyReleases *bool `gorm:"default:true" json:"notifyReleases"`
+	// Notify when a previously-watched show gets a new season (the
+	// FINISHED -> PLANNED automation).
+	NotifyNewSeasons *bool `gorm:"default:true" json:"notifyNewSeasons"`
 }
 
 // Public user details for search results
