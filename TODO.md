@@ -212,7 +212,17 @@ half is covered separately — see JustWatch scoring below.)
       row's emoji badges for the app's own SVG icons (tv/sparkles/ticket) -
       the emoji rendered too small/ambiguous to tell apart.
 
-- [ ] **#409** — Notifications for upcoming releases
+- [x] **#409** — Notifications for upcoming releases
       https://github.com/sbondCo/Watcharr/issues/409
-      Scheduler exists; still need delivery mechanism (e.g. ntfy/webhook, as
-      suggested in the issue), "already notified" tracking, user settings.
+      Delivery via ntfy only (a topic URL, set per-user in Profile), not a
+      generic webhook - simplest thing that works for one user's phone.
+      Two triggers, chosen deliberately: release reminders (new daily task,
+      PLANNED movies/shows releasing today) and new season available
+      (hooked directly into the existing FINISHED->PLANNED automation from
+      the item above, at the exact moment a show flips back to PLANNED -
+      that's already a one-time, deduped event). "Leaving soon"/availableTo
+      alerts were considered and explicitly deferred, not forgotten.
+      New `entity.SentNotification` table dedupes so a task rerun never
+      double-sends. "Send Test" button in Profile hits a dedicated
+      `POST /user/notify/test` endpoint so a topic URL can be verified
+      without waiting for a real release or season.
