@@ -202,6 +202,16 @@ half is covered separately — see JustWatch scoring below.)
       threaded through every discover mode alongside the existing include
       list, including the Trending post-filter.
 
+- [x] **Up Next: surface shows with a new season since being finished** (not
+      from an upstream issue). New `UpNextItemKind` "newseason" - shows with
+      watched-episode history that are PLANNED again because a new season
+      arrived since being finished (the #766 automation's doing). Previously
+      easy to miss: not WATCHING, and the new season's already aired so it's
+      not an upcoming release either. Reuses `nextEpisodeFor` since the
+      mechanics match an actively-watching show exactly. Also swapped the
+      row's emoji badges for the app's own SVG icons (tv/sparkles/ticket) -
+      the emoji rendered too small/ambiguous to tell apart.
+
 - [ ] **#409** — Notifications for upcoming releases
       https://github.com/sbondCo/Watcharr/issues/409
       Scheduler exists; still need delivery mechanism (e.g. ntfy/webhook, as
