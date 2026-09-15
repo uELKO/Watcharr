@@ -103,7 +103,33 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		items = append(items, releases...)
 	}
 
+	// Merge all three kinds into one date-ascending row - each kind is
+	// gathered (and sorted) independently above, so without this the row
+	// would just show episodes, then new-seasons, then releases as three
+	// separate blocks instead of one soonest-first list. Items with no
+	// known date (AirDate/ReleaseDate both empty) sort last.
+	sort.SliceStable(items, func(a, b int) bool {
+		da, db := itemDate(items[a]), itemDate(items[b])
+		if da == "" {
+			return false
+		}
+		if db == "" {
+			return true
+		}
+		return da < db
+	})
+
 	return items, nil
+}
+
+// itemDate returns the date an UpNextItem should be sorted by: the episode
+// air date for episode/newseason cards, the release date for release cards.
+// Both are formatted "2006-01-02" so plain string comparison sorts correctly.
+func itemDate(item UpNextItem) string {
+	if item.AirDate != "" {
+		return item.AirDate
+	}
+	return item.ReleaseDate
 }
 
 // newSeasonEpisodes finds shows the user previously watched at least one

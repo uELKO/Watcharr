@@ -226,3 +226,11 @@ half is covered separately — see JustWatch scoring below.)
       double-sends. "Send Test" button in Profile hits a dedicated
       `POST /user/notify/test` endpoint so a topic URL can be verified
       without waiting for a real release or season.
+
+- [ ] **Scroll position lost on back-navigation** (not from an upstream issue).
+      Opening a card (movie/show detail) from a scrolled list and then going
+      back resets scroll to the top instead of restoring where you were -
+      annoying on long grids (Discover, search results, etc). Likely needs
+      SvelteKit's scroll management looked at (`data-sveltekit-*` attributes /
+      `beforeNavigate`/`afterNavigate` scroll handling), possibly combined with
+      how navigation is triggered from poster cards.

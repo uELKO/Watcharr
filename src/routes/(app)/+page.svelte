@@ -273,7 +273,7 @@
 			{#each statusSections as s (s.status)}
 				{@const section = groupedData[s.status]}
 				{#if section}
-					<HorizontalList title={`${s.label} (${section.total})`}>
+					<HorizontalList title={`${s.label} (${section.total})`} center>
 						{#each section.items as w, i (`${s.status}-${i}-${w.type}`)}
 							<Poster
 								bind:watched={section.items[i].watched}
