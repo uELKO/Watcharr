@@ -4,24 +4,29 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/sbondCo/Watcharr/database/entity"
 	"github.com/sbondCo/Watcharr/domain"
+	"github.com/sbondCo/Watcharr/feature/watched/newseason"
 	"github.com/sbondCo/Watcharr/feature/watched/watchedutil"
+	"github.com/sbondCo/Watcharr/media/tmdb"
 )
 
-// UpNextItemKind distinguishes the three kinds of card the "Up Next" row can
-// show: the next unwatched episode of a show being WATCHING, a show that
-// was previously watched (has watched history) and has a new, unwatched
-// season now that a PLANNED->WATCHING automation moved it back to PLANNED
-// for, or a PLANNED movie/show with a known, still-upcoming release date.
+// UpNextItemKind distinguishes the kinds of card the "Up Next" row can
+// show: the next unwatched episode of a show being WATCHING, a previously
+// watched show with a new season that has already started airing, a
+// previously finished show with a new season that is announced with a date
+// but hasn't aired yet, or a PLANNED movie/show with a known, still-upcoming
+// release date.
 type UpNextItemKind string
 
 const (
-	UpNextKindEpisode   UpNextItemKind = "episode"
-	UpNextKindNewSeason UpNextItemKind = "newseason"
-	UpNextKindRelease   UpNextItemKind = "release"
+	UpNextKindEpisode        UpNextItemKind = "episode"
+	UpNextKindNewSeason      UpNextItemKind = "newseason"
+	UpNextKindUpcomingSeason UpNextItemKind = "upcomingseason"
+	UpNextKindRelease        UpNextItemKind = "release"
 )
 
 // UpNextItem describes one card in the "Up Next" row on the overview page -
@@ -37,6 +42,9 @@ type UpNextItem struct {
 	// items can be either, so the client needs this to link to the right page.
 	ContentType string `json:"contentType"`
 	ShowTitle   string `json:"showTitle"`
+	// The watched entry's own status, so the card's status button shows the
+	// real one (eg FINISHED for an upcoming season of a finished show).
+	ShowStatus entity.WatchedStatus `json:"showStatus"`
 	PosterPath  string `json:"posterPath"`
 	SeasonNumber  int `json:"seasonNumber,omitempty"`
 	EpisodeNumber int `json:"episodeNumber,omitempty"`
@@ -72,6 +80,7 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		// columns for some sorts) resolves; UpNext is shows-only so it's null.
 		Joins("Game").
 		Preload("WatchedEpisodes").
+		Preload("WatchedSeasons").
 		Where("watcheds.user_id = ? AND Content.type = ? AND watcheds.status = ?",
 			userId, entity.SHOW, entity.WATCHING).
 		// Apply the same sort as the watched list so Up Next matches its order.
@@ -94,6 +103,13 @@ func (s *Service) UpNext(userId uint, wpr domain.WatchedGetPageRequest) ([]UpNex
 		slog.Warn("UpNext: newSeasonEpisodes query failed", "error", err)
 	} else {
 		items = append(items, newSeasonItems...)
+	}
+
+	finishedItems, err := s.finishedShowsNewSeasons(userId)
+	if err != nil {
+		slog.Warn("UpNext: finishedShowsNewSeasons query failed", "error", err)
+	} else {
+		items = append(items, finishedItems...)
 	}
 
 	releases, err := s.upcomingPlannedReleases(userId)
@@ -148,6 +164,7 @@ func (s *Service) newSeasonEpisodes(userId uint, wpr domain.WatchedGetPageReques
 		Joins("Content").
 		Joins("Game").
 		Preload("WatchedEpisodes").
+		Preload("WatchedSeasons").
 		Where("watcheds.user_id = ? AND Content.type = ? AND watcheds.status = ?",
 			userId, entity.SHOW, entity.PLANNED).
 		Scopes(watchedRefineSort(wpr, userId)).
@@ -157,7 +174,7 @@ func (s *Service) newSeasonEpisodes(userId uint, wpr domain.WatchedGetPageReques
 	}
 	items := []UpNextItem{}
 	for i := range w {
-		if len(w[i].WatchedEpisodes) == 0 {
+		if len(w[i].WatchedEpisodes) == 0 && !hasCompletedSeason(w[i].WatchedSeasons) {
 			// Never actually started - a plain new PLANNED add, not a
 			// "resuming after a new season" case.
 			continue
@@ -201,6 +218,7 @@ func (s *Service) upcomingPlannedReleases(userId uint) ([]UpNextItem, error) {
 			TmdbID:      w[i].Content.TmdbID,
 			ContentType: contentType,
 			ShowTitle:   w[i].Content.Title,
+			ShowStatus:  w[i].Status,
 			PosterPath:  w[i].Content.PosterPath,
 			ReleaseDate: w[i].Content.ReleaseDate.Format("2006-01-02"),
 			Rating:      w[i].Rating,
@@ -227,15 +245,32 @@ func (s *Service) nextEpisodeFor(w *entity.Watched) (UpNextItem, bool) {
 		}
 	}
 
+	// Seasons marked FINISHED/DROPPED as a whole count as fully seen, even
+	// if (older data) their episodes have no entries of their own.
+	seasonDone := make(map[int]bool, len(w.WatchedSeasons))
+	for _, ws := range w.WatchedSeasons {
+		if ws.Status == entity.FINISHED || ws.Status == entity.DROPPED {
+			seasonDone[ws.SeasonNumber] = true
+			if ws.SeasonNumber > maxSeason {
+				maxSeason = ws.SeasonNumber
+			}
+		}
+	}
+
+	tvId := strconv.Itoa(w.Content.TmdbID)
+	// Prefer TMDB's (cached) live season count: the stored Content row can
+	// be stale and miss a season that was added since it was cached.
 	totalSeasons := int(w.Content.NumberOfSeasons)
+	if sd, err := s.tmdb.ShowDetails(tmdb.ShowDetailsOptions{ID: tvId}); err == nil && int(sd.NumberOfSeasons) > totalSeasons {
+		totalSeasons = int(sd.NumberOfSeasons)
+	}
 	if totalSeasons < maxSeason {
 		totalSeasons = maxSeason
 	}
-	tvId := strconv.Itoa(w.Content.TmdbID)
 	remaining, progress := watchedutil.GetWatchProgress(w.Content.NumberOfEpisodes, w.WatchedEpisodes)
 
 	for season := maxSeason; season <= totalSeasons; season++ {
-		if season <= 0 { // skip specials (season 0)
+		if season <= 0 || seasonDone[season] { // skip specials (season 0) and completed seasons
 			continue
 		}
 		sd, err := s.tmdb.SeasonDetails(tvId, strconv.Itoa(season))
@@ -266,6 +301,7 @@ func (s *Service) nextEpisodeFor(w *entity.Watched) (UpNextItem, bool) {
 				TmdbID:              w.Content.TmdbID,
 				ContentType:         "tv",
 				ShowTitle:           w.Content.Title,
+				ShowStatus:          w.Status,
 				PosterPath:          w.Content.PosterPath,
 				SeasonNumber:       ep.SeasonNumber,
 				EpisodeNumber:      ep.EpisodeNumber,
@@ -280,4 +316,139 @@ func (s *Service) nextEpisodeFor(w *entity.Watched) (UpNextItem, bool) {
 		}
 	}
 	return UpNextItem{}, false
+}
+
+// True if any season is marked FINISHED or DROPPED - ie the user has watch
+// history for the show even without per-episode entries.
+func hasCompletedSeason(ws []entity.WatchedSeason) bool {
+	for _, s := range ws {
+		if s.Status == entity.FINISHED || s.Status == entity.DROPPED {
+			return true
+		}
+	}
+	return false
+}
+
+// finishedShowsNewSeasons covers FINISHED shows that got a new season since
+// the user marked them finished (see newseason.NewSeasonsSince). Works
+// straight off TMDB, independent of the daily task that moves such shows
+// back to PLANNED, and regardless of whether the user tracked individual
+// seasons/episodes or just marked the whole show finished.
+//
+// Per show, the earliest new season produces one card for its first
+// episode: Kind "newseason" if it has already started airing (the task
+// hasn't flipped the show yet), "upcomingseason" if it is only announced
+// with a date (eg 3 Body Problem S2) - the "coming soon" reminder for shows
+// you've already finished.
+//
+// Only shows whose stored TMDB status says they can still continue (not
+// Ended/Canceled) are checked, to keep the number of TMDB lookups (cached
+// for 24h) small.
+func (s *Service) finishedShowsNewSeasons(userId uint) ([]UpNextItem, error) {
+	var w []entity.Watched
+	res := s.db.
+		Joins("Content").
+		Preload("WatchedSeasons").
+		Where("watcheds.user_id = ? AND Content.type = ? AND watcheds.status = ? AND Content.status NOT IN ?",
+			userId, entity.SHOW, entity.FINISHED, []string{"Ended", "Canceled"}).
+		Find(&w)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if len(w) == 0 {
+		return []UpNextItem{}, nil
+	}
+	ids := make([]uint, 0, len(w))
+	for i := range w {
+		ids = append(ids, w[i].ID)
+	}
+	finishedAt, err := newseason.FinishedAtByWatched(s.db, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	results := make([]*UpNextItem, len(w))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 6) // bound parallel TMDB lookups (first, uncached load)
+	for i := range w {
+		if w[i].Content == nil {
+			continue
+		}
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			fa, ok := finishedAt[w[i].ID]
+			if !ok {
+				fa = w[i].UpdatedAt
+			}
+			results[i] = s.newSeasonCardFor(&w[i], fa, now)
+		}(i)
+	}
+	wg.Wait()
+
+	items := []UpNextItem{}
+	for _, it := range results {
+		if it != nil {
+			items = append(items, *it)
+		}
+	}
+	return items, nil
+}
+
+// Builds the card for the earliest season of `w` that is new since
+// `finishedAt`, or nil if there is none.
+func (s *Service) newSeasonCardFor(w *entity.Watched, finishedAt time.Time, now time.Time) *UpNextItem {
+	tvId := strconv.Itoa(w.Content.TmdbID)
+	showDetails, err := s.tmdb.ShowDetails(tmdb.ShowDetailsOptions{ID: tvId})
+	if err != nil {
+		slog.Warn("newSeasonCardFor: show details failed", "tmdbId", w.Content.TmdbID, "error", err)
+		return nil
+	}
+	newSeasons := newseason.NewSeasonsSince(showDetails, w.WatchedSeasons, finishedAt, now)
+	if len(newSeasons) == 0 {
+		return nil
+	}
+	ns := newSeasons[0]
+	kind := UpNextKindUpcomingSeason
+	if ns.Aired {
+		kind = UpNextKindNewSeason
+	}
+	item := &UpNextItem{
+		Kind:         kind,
+		WatchedID:    w.ID,
+		TmdbID:       w.Content.TmdbID,
+		ContentType:  "tv",
+		ShowTitle:    w.Content.Title,
+		ShowStatus:   w.Status,
+		PosterPath:   w.Content.PosterPath,
+		SeasonNumber: ns.SeasonNumber,
+		// Fallbacks in case season details fail below.
+		EpisodeNumber: 1,
+		AirDate:       ns.AirDate.Format("2006-01-02"),
+		Rating:        w.Rating,
+	}
+	sd, err := s.tmdb.SeasonDetails(tvId, strconv.Itoa(ns.SeasonNumber))
+	if err != nil {
+		slog.Warn("newSeasonCardFor: season details failed", "tmdbId", w.Content.TmdbID, "season", ns.SeasonNumber, "error", err)
+		return item
+	}
+	eps := sd.Episodes
+	sort.Slice(eps, func(a, b int) bool { return eps[a].EpisodeNumber < eps[b].EpisodeNumber })
+	item.SeasonEpisodeCount = len(eps)
+	if len(eps) > 0 {
+		ep := eps[0]
+		item.EpisodeNumber = ep.EpisodeNumber
+		item.EpisodeName = ep.Name
+		item.StillPath = ep.StillPath
+		if ep.AirDate != "" {
+			item.AirDate = ep.AirDate
+		}
+		// Everything in the new season is still ahead, incl. this episode;
+		// count the ones after it, same as the other cards.
+		item.RemainingEpisodes = len(eps) - 1
+	}
+	return item
 }

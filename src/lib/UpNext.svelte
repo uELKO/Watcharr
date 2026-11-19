@@ -13,6 +13,12 @@
        "episode" is a "New season" badge instead of the air-date one, and
        the status button shows PLANNED (its real status) instead of
        WATCHING.
+       Also used for FINISHED shows whose new season already started but
+       the daily task hasn't moved them back to PLANNED yet.
+     - "upcomingseason": a show you already finished that has a new season
+       announced with a date but not aired yet (eg 3 Body Problem S2).
+       Shows the season start date; the status button behaves normally
+       (nothing to mark watched yet).
      - "release": a PLANNED movie/show with a known, still-upcoming release
        date - the "coming soon" reminder half. Status here behaves normally
        (no repurposing), same as any other poster.
@@ -34,11 +40,13 @@
 	import type { SupportedMedia, WatchedStatus } from "@/types";
 
 	interface UpNextItem {
-		kind: "episode" | "newseason" | "release";
+		kind: "episode" | "newseason" | "upcomingseason" | "release";
 		watchedId: number;
 		tmdbId: number;
 		contentType: "movie" | "tv";
 		showTitle: string;
+		/** The watched entry's real status. */
+		showStatus?: WatchedStatus;
 		posterPath: string;
 		seasonNumber?: number;
 		episodeNumber?: number;
@@ -215,6 +223,11 @@
 						<div class="air-badge future" title="A new season is available">
 							<Icon i="sparkles" wh={12} /> New season
 						</div>
+					{:else if item.kind === "upcomingseason" && item.airDate && activeId !== item.watchedId}
+						<div class="air-badge future" title="New season starts on this date">
+							<Icon i="tv" wh={12} />
+							{formatGermanDate(new Date(item.airDate))}
+						</div>
 					{:else if item.kind === "episode" && item.airDate && activeId !== item.watchedId}
 						{@const future = new Date(item.airDate) > new Date()}
 						<div
@@ -231,7 +244,7 @@
 							{formatGermanDate(new Date(item.releaseDate))}
 						</div>
 					{/if}
-					{#if (item.kind === "episode" || item.kind === "newseason") && activeId !== item.watchedId}
+					{#if (item.kind === "episode" || item.kind === "newseason" || item.kind === "upcomingseason") && activeId !== item.watchedId}
 						<PosterEpisodeBadge
 							text={episodeBadgeText(item)}
 							remaining={item.remainingEpisodes}
@@ -256,6 +269,12 @@
 									{episodeBadgeText(item)}{item.seasonEpisodeCount
 										? `/${item.seasonEpisodeCount}`
 										: ""}{item.episodeName ? ` · ${item.episodeName}` : ""}
+								{:else if item.kind === "upcomingseason"}
+									Season {item.seasonNumber}{item.seasonEpisodeCount
+										? ` (${item.seasonEpisodeCount} episodes)`
+										: ""}{item.airDate
+										? ` starts ${formatGermanDate(new Date(item.airDate))}`
+										: ""}
 								{:else if item.releaseDate}
 									Releases {formatGermanDate(new Date(item.releaseDate))}
 								{/if}
@@ -268,7 +287,9 @@
 								disableInteraction={busyId === item.watchedId}
 							/>
 							<PosterStatus
-								status={item.kind === "episode" ? "WATCHING" : "PLANNED"}
+								status={item.kind === "episode"
+									? "WATCHING"
+									: (item.showStatus ?? "PLANNED")}
 								handleStatusClick={(t) => handleStatusClick(item, t)}
 								disableInteraction={busyId === item.watchedId}
 								btnTooltip={item.kind === "episode" || item.kind === "newseason"

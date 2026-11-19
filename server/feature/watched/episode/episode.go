@@ -140,13 +140,17 @@ func (s *Service) SetEpisodeStatusForSeasonCascade(
 	return entity.WatchedEpisode{}, errors.New("episode not found in response after adding")
 }
 
-// Episode numbers in `seasonNumber` that already have a watched entry
-// (any status), so a season->episode cascade can skip them instead of
-// clobbering whatever the user already set (eg an episode marked DROPPED).
-func (s *Service) GetWatchedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error) {
+// Episode numbers in `seasonNumber` that are already completed (FINISHED or
+// DROPPED), so a season->episode cascade can skip them: FINISHED ones need
+// nothing, and DROPPED is a deliberate choice we don't clobber. Episodes
+// with any other status (PLANNED/WATCHING/HOLD/none) are not returned, so
+// the cascade upgrades them to FINISHED - a finished season means all of
+// its episodes are watched.
+func (s *Service) GetCompletedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error) {
 	var episodeNumbers []int
 	if res := s.db.Model(&entity.WatchedEpisode{}).
-		Where("user_id = ? AND watched_id = ? AND season_number = ?", userId, watchedId, seasonNumber).
+		Where("user_id = ? AND watched_id = ? AND season_number = ? AND status IN ?",
+			userId, watchedId, seasonNumber, []entity.WatchedStatus{entity.FINISHED, entity.DROPPED}).
 		Pluck("episode_number", &episodeNumbers); res.Error != nil {
 		return nil, res.Error
 	}
@@ -343,6 +347,10 @@ func (s *Service) hookEpisodeStatusChanged(userId uint, watchedId uint, seasonNu
 		slog.Error("hookEpisodeStatusChanged: Cannot continue, failed to get watchedSeason!", "error", err)
 		return EpisodeStatusChangedHookResponse{Errors: []string{("failed to query db for watched season")}}
 	}
+	// True if this episode starts a season the user hadn't begun yet (no
+	// entry, or PLANNED). Used below to pull a FINISHED show back to
+	// WATCHING when a new season gets started from it.
+	startsFreshSeason := watchedSeason == nil || watchedSeason.Status == "" || watchedSeason.Status == entity.PLANNED
 	// If season not found, create it.
 	if watchedSeason == nil {
 		slog.Debug("hookEpisodeStatusChanged: Watched season does not exist. Creating now.")
@@ -397,8 +405,14 @@ func (s *Service) hookEpisodeStatusChanged(userId uint, watchedId uint, seasonNu
 		hookResponse.Errors = append(hookResponse.Errors, "failed to get watched item for show")
 		return hookResponse
 	} else {
-		// Show status shouldn't be empty, but watevs, handle it just incase
-		if watchedShow.Status == "" || watchedShow.Status == entity.PLANNED {
+		// Show status shouldn't be empty, but watevs, handle it just incase.
+		// A FINISHED show also goes back to WATCHING when an episode of a
+		// season the user hadn't started yet gets watched (ie a new season
+		// came out and they started it, eg from the Up Next card). Re-marking
+		// an episode of an already-started/finished season leaves it alone.
+		if watchedShow.Status == "" || watchedShow.Status == entity.PLANNED ||
+			(watchedShow.Status == entity.FINISHED && startsFreshSeason &&
+				(newEpisodeStatus == entity.FINISHED || newEpisodeStatus == entity.WATCHING)) {
 			watchedShow.Status = entity.WATCHING
 			if res := s.db.Save(watchedShow); res.Error != nil {
 				slog.Error("hookEpisodeStatusChanged: Failed to update show status!", "error", res.Error)

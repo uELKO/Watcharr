@@ -227,6 +227,28 @@ half is covered separately — see JustWatch scoring below.)
       `POST /user/notify/test` endpoint so a topic URL can be verified
       without waiting for a real release or season.
 
+- [x] **New-season detection fixes + "upcomingseason" card** (not from an
+      upstream issue; found via 3 Body Problem S2 missing from Up Next).
+      - "Refresh Finished Shows" task had never worked: ambiguous `status`
+        column in its query, and as a 24h gocron job it never fired anyway
+        on an instance restarted more than daily. Now runs on startup too.
+      - New-season rule is "season first aired after the show was last set
+        FINISHED" (`newseason` package, finish time from activities) instead
+        of "any season without a watched entry" - the old rule would have
+        flipped every show marked FINISHED as a whole back to PLANNED.
+      - Up Next: new kind "upcomingseason" for FINISHED shows with an
+        announced, dated, not-yet-aired season; FINISHED shows whose new
+        season already aired get a "newseason" card straight from TMDB
+        without waiting for the task. Cards carry the real `showStatus`.
+      - `nextEpisodeFor` counts FINISHED/DROPPED seasons as seen and uses
+        TMDB's live season count instead of the possibly stale Content row.
+      - Season FINISHED -> all its episodes FINISHED: cascade now also
+        upgrades existing PLANNED/WATCHING/HOLD episodes (DROPPED kept),
+        and the task backfills seasons finished before the cascade existed
+        (no activities, idempotent).
+      - Watching an episode of a not-yet-started season on a FINISHED show
+        moves the show back to WATCHING.
+
 - [ ] **Scroll position lost on back-navigation** (not from an upstream issue).
       Opening a card (movie/show detail) from a scrolled list and then going
       back resets scroll to the top instead of restoring where you were -

@@ -57,9 +57,9 @@ type WatchedEpisodeProvider interface {
 	// update the season/show status we're already explicitly setting here).
 	// Used only for the season->episode cascade below.
 	SetEpisodeStatusForSeasonCascade(userId uint, watchedId uint, seasonNumber int, episodeNumber int, status entity.WatchedStatus, addActivity entity.ActivityType) (entity.WatchedEpisode, error)
-	// Episode numbers in a season that already have a watched entry (any
-	// status), so the cascade only backfills ones the user hasn't touched.
-	GetWatchedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error)
+	// Episode numbers in a season that are already FINISHED or DROPPED, so
+	// the cascade only creates/upgrades the rest.
+	GetCompletedEpisodeNumbersInSeason(userId uint, watchedId uint, seasonNumber int) ([]int, error)
 }
 
 type Service struct {
@@ -206,11 +206,11 @@ func (s *Service) AddWatchedSeason(userId uint, ar WatchedSeasonAddRequest) (Wat
 	return resp, nil
 }
 
-// Called after a season has been explicitly marked FINISHED. Backfills any
-// episode in it that doesn't have a watched entry yet as FINISHED too, so
-// "mark whole season watched" doesn't leave individual episodes still
-// toggleable/inconsistent with the season you just finished. Episodes the
-// user already set a status for (eg one they marked DROPPED) are left alone.
+// Called after a season has been explicitly marked FINISHED. Sets every
+// episode in it to FINISHED too (creating missing entries and upgrading
+// PLANNED/WATCHING/HOLD ones), so "mark whole season watched" doesn't leave
+// individual episodes inconsistent with the season you just finished.
+// Episodes the user marked DROPPED are left alone.
 // `showStatus` is the show's status *before* this call, so we know whether
 // it's safe to auto-advance it (eg never override a deliberate DROPPED).
 func (s *Service) hookSeasonStatusChanged(userId uint, watchedId uint, showTmdbId int, seasonNum int, showStatus entity.WatchedStatus) SeasonStatusChangedHookResponse {
@@ -233,7 +233,7 @@ func (s *Service) hookSeasonStatusChanged(userId uint, watchedId uint, showTmdbI
 		hookResponse.Errors = append(hookResponse.Errors, "failed to get season details")
 		return hookResponse
 	}
-	existing, err := s.wep.GetWatchedEpisodeNumbersInSeason(userId, watchedId, seasonNum)
+	existing, err := s.wep.GetCompletedEpisodeNumbersInSeason(userId, watchedId, seasonNum)
 	if err != nil {
 		slog.Error("hookSeasonStatusChanged: Failed to get existing watched episodes!", "error", err)
 		hookResponse.Errors = append(hookResponse.Errors, "failed to get existing watched episodes")

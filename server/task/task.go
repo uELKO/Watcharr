@@ -37,6 +37,11 @@ type TaskFunc struct {
 	f func()
 	// Default duration (schedule) for task.
 	dd time.Duration
+	// Also run once right when the scheduler starts, not only after the
+	// first full interval. For long-interval (daily) tasks that matter:
+	// every restart resets gocron's interval, so without this a daily task
+	// never runs on an instance that gets restarted more than once a day.
+	runOnStart bool
 }
 
 var taskScheduler gocron.Scheduler
@@ -89,7 +94,8 @@ func SetupTasks(cfg *config.ServerConfig, db *gorm.DB, tmdbSvc *tmdb.TMDB, activ
 			f: func() {
 				season.RefreshFinishedShowsForNewSeasons(db, tmdbSvc, activityProvider)
 			},
-			dd: 24 * time.Hour,
+			dd:         24 * time.Hour,
+			runOnStart: true,
 		},
 		"Send Release Notifications": {
 			f: func() {
@@ -123,10 +129,14 @@ func GetTaskSeconds(cfg *config.ServerConfig, name string, defaultDur time.Durat
 // Add new job to scheduler.
 func AddTaskToScheduler(cfg *config.ServerConfig, name string, defaultDur time.Duration) error {
 	s := GetTaskSeconds(cfg, name, defaultDur)
+	opts := []gocron.JobOption{gocron.WithName(name)}
+	if taskFuncs[name].runOnStart {
+		opts = append(opts, gocron.WithStartAt(gocron.WithStartImmediately()))
+	}
 	_, err := taskScheduler.NewJob(
 		gocron.DurationJob(s),
 		gocron.NewTask(taskFuncs[name].f),
-		gocron.WithName(name),
+		opts...,
 	)
 	slog.Debug("addTaskToScheduler: Job added.", "job_name", name, "duration_used", s, "duration_default", defaultDur)
 	return err
